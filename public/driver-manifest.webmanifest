@@ -1,0 +1,17 @@
+{
+  "name": "Рэдианс водитель",
+  "short_name": "Рэдианс",
+  "start_url": "/driver",
+  "display": "standalone",
+  "background_color": "#4e5864",
+  "theme_color": "#4e5864",
+  "lang": "ru",
+  "icons": [
+    {
+      "src": "/bot-avatar-500.png",
+      "sizes": "500x500",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

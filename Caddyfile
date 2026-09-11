@@ -1,0 +1,18 @@
+{
+	email admin@rad55.ru
+	auto_https disable_redirects
+}
+
+http://79.174.77.42 {
+	encode gzip
+	reverse_proxy web:3000
+}
+
+http://specteh.rad55.ru {
+	redir https://specteh.rad55.ru{uri} permanent
+}
+
+specteh.rad55.ru {
+	encode gzip
+	reverse_proxy web:3000
+}

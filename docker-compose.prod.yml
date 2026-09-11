@@ -1,0 +1,43 @@
+services:
+  web:
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_YANDEX_SUGGEST_KEY: ${NEXT_PUBLIC_YANDEX_SUGGEST_KEY:-}
+    environment:
+      NODE_ENV: production
+      TZ: Asia/Omsk
+      DATABASE_URL: file:/data/app.db
+      DB_PATH: /data/app.db
+      AUTH_SECRET: ${AUTH_SECRET:?задайте AUTH_SECRET в .env}
+      APP_URL: ${APP_URL:-https://specteh.rad55.ru}
+      SMSRU_API_ID: ${SMSRU_API_ID:-}
+      MAX_BOT_TOKEN: ${MAX_BOT_TOKEN:-}
+      MAX_STAFF_CHAT_ID: ${MAX_STAFF_CHAT_ID:-}
+      NEXT_PUBLIC_YANDEX_SUGGEST_KEY: ${NEXT_PUBLIC_YANDEX_SUGGEST_KEY:-}
+      DADATA_API_TOKEN: ${DADATA_API_TOKEN:-}
+    volumes:
+      - appdata:/data
+      - uploads:/app/public/uploads
+    restart: unless-stopped
+    expose:
+      - "3000"
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+    restart: unless-stopped
+
+volumes:
+  appdata:
+  uploads:
+  caddy_data:
+  caddy_config:

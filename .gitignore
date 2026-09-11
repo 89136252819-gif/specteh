@@ -1,0 +1,15 @@
+node_modules
+.next
+out
+.env
+*.db
+*.db-journal
+/public/uploads
+.tools
+.idea
+.vscode
+tsconfig.tsbuildinfo
+
+# local runtime / backups
+/data/
+*.sqlite

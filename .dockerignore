@@ -1,0 +1,13 @@
+node_modules
+.next
+.tools
+.git
+.env
+.env.*
+!.env.example
+public/uploads
+**/*.md
+scripts/vps-setup.sh
+.idea
+.vscode
+tsconfig.tsbuildinfo

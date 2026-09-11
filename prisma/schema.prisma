@@ -1,0 +1,319 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  login        String   @unique
+  passwordHash String
+  name         String
+  phone        String?
+  maxUserId    String?
+  role         String
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  driver           Driver?
+  notifications    Notification[]
+  pushSubscriptions PushSubscription[]
+  paymentsRecorded Payment[]      @relation("PaymentRecorder")
+  createdOrders    Order[]        @relation("OrderCreator")
+}
+
+model Organization {
+  id            String  @id @default(cuid())
+  name          String
+  shortName     String
+  inn           String
+  kpp           String?
+  ogrn          String?
+  legalAddress  String
+  phone         String?
+  email         String?
+  bankName      String
+  bik           String
+  account       String
+  corrAccount   String
+  directorName  String
+  directorTitle String  @default("Директор")
+  vatRate       Float   @default(0)
+  paymentMethod String  @unique
+  invoicePrefix String  @default("СЧ")
+  actPrefix     String  @default("АКТ")
+  lastInvoiceNo Int     @default(0)
+  lastActNo     Int     @default(0)
+  isActive      Boolean @default(true)
+  signatureFile String?
+  stampFile     String?
+
+  orders   Order[]
+  invoices Invoice[]
+  acts     Act[]
+}
+
+model Customer {
+  id                   String   @id @default(cuid())
+  type                 String
+  name                 String
+  inn                  String?
+  kpp                  String?
+  address              String?
+  contactName          String
+  phone                String
+  maxUserId            String?
+  email                String?
+  defaultPaymentMethod String   @default("CASHLESS_VAT")
+  notes                String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  orders         Order[]
+  priceOverrides PriceItem[]
+}
+
+model EquipmentType {
+  id   String @id @default(cuid())
+  name String @unique
+
+  units      Equipment[]
+  priceItems PriceItem[]
+  orders     Order[]
+}
+
+model Equipment {
+  id          String  @id @default(cuid())
+  typeId      String
+  name        String
+  plateNumber String  @unique
+  status      String  @default("AVAILABLE")
+  notes       String?
+
+  type             EquipmentType @relation(fields: [typeId], references: [id])
+  orders           Order[]
+  defaultForDrivers Driver[]     @relation("DefaultEquipment")
+}
+
+model Driver {
+  id                 String  @id @default(cuid())
+  userId             String  @unique
+  licenseNumber      String?
+  defaultEquipmentId String?
+
+  user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  defaultEquipment Equipment?   @relation("DefaultEquipment", fields: [defaultEquipmentId], references: [id])
+  orders           Order[]
+  shifts           DriverShift[]
+}
+
+model DriverShift {
+  id        String    @id @default(cuid())
+  driverId  String
+  startedAt DateTime
+  endedAt   DateTime?
+
+  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@index([driverId, endedAt])
+}
+
+model PriceItem {
+  id              String  @id @default(cuid())
+  equipmentTypeId String
+  customerId      String?
+  kind            String
+  amount          Float
+  label           String
+
+  equipmentType EquipmentType @relation(fields: [equipmentTypeId], references: [id], onDelete: Cascade)
+  customer      Customer?     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+}
+
+model Order {
+  id              String    @id @default(cuid())
+  number          String    @unique
+  customerId      String
+  organizationId  String
+  paymentMethod   String
+  vatRate         Float?
+  equipmentTypeId String
+  equipmentId     String?
+  driverId        String?
+  address         String
+  siteContact     String?
+  sitePhone       String?
+  scheduledAt     DateTime
+  comment         String?
+  maxBindToken    String?   @unique
+  status          String    @default("NEW")
+  cancelReason    String?
+  assignedAt      DateTime?
+  acceptedAt      DateTime?
+  createdById     String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  customer      Customer      @relation(fields: [customerId], references: [id])
+  organization  Organization  @relation(fields: [organizationId], references: [id])
+  equipmentType EquipmentType @relation(fields: [equipmentTypeId], references: [id])
+  equipment     Equipment?    @relation(fields: [equipmentId], references: [id])
+  driver        Driver?       @relation(fields: [driverId], references: [id])
+  createdBy     User          @relation("OrderCreator", fields: [createdById], references: [id])
+  report        WorkReport?
+  invoice       Invoice?
+  act           Act?
+}
+
+model WorkReport {
+  id           String    @id @default(cuid())
+  orderId      String    @unique
+  deliveryQty  Float     @default(1)
+  hours        Float     @default(0)
+  idleHours    Float     @default(0)
+  km           Float     @default(0)
+  isWeekend    Boolean   @default(false)
+  comment      String?
+  photosJson   String    @default("[]")
+  billingJson  String?
+  submittedAt  DateTime  @default(now())
+  verifiedAt   DateTime?
+  verifiedById String?
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model Invoice {
+  id             String   @id @default(cuid())
+  number         String
+  orderId        String   @unique
+  organizationId String
+  issuedAt       DateTime @default(now())
+  dueAt          DateTime?
+  paymentPurpose String?
+  amount         Float
+  vatAmount      Float
+  vatRate        Float?
+  status         String   @default("UNPAID")
+  publicToken    String   @unique
+  linesJson      String
+
+  order        Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id])
+  payments     Payment[]
+}
+
+model Act {
+  id             String   @id @default(cuid())
+  number         String
+  orderId        String   @unique
+  organizationId String
+  issuedAt       DateTime @default(now())
+  amount         Float
+  vatAmount      Float
+  vatRate        Float?
+  publicToken    String   @unique
+  linesJson      String
+
+  order        Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id])
+}
+
+model Payment {
+  id           String   @id @default(cuid())
+  invoiceId    String
+  amount       Float
+  paidAt       DateTime @default(now())
+  comment      String?
+  recordedById String?
+
+  invoice    Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  recordedBy User?   @relation("PaymentRecorder", fields: [recordedById], references: [id], onDelete: SetNull)
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  body      String
+  orderId   String?
+  read      Boolean  @default(false)
+  archived  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model SmsLog {
+  id        String   @id @default(cuid())
+  to        String
+  text      String
+  purpose   String
+  status    String
+  error     String?
+  orderId   String?
+  createdAt DateTime @default(now())
+}
+
+model SmsTemplate {
+  id   String @id @default(cuid())
+  key  String @unique
+  name String
+  text String
+}
+
+model AppSequence {
+  key   String @id
+  value Int    @default(0)
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  actorName String
+  action    String
+  entity    String
+  entityId  String
+  orderId   String?
+  detail    String?
+  createdAt DateTime @default(now())
+
+  @@index([orderId, createdAt])
+  @@index([entity, entityId])
+}
+
+model OrderTemplate {
+  id              String   @id @default(cuid())
+  name            String
+  customerId      String
+  paymentMethod   String
+  vatRate         Float?
+  equipmentTypeId String
+  address         String
+  siteContact     String?
+  sitePhone       String?
+  comment         String?
+  intervalDays    Int      @default(7)
+  active          Boolean  @default(true)
+  createdById     String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
