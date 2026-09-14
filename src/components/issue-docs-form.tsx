@@ -160,7 +160,7 @@ export function IssueDocsForm({
         formData.set("manualTotal", String(roundMoney(Number(manualTotal))));
         formData.set("manualVatAmount", String(vatRate > 0 ? roundMoney(Number(manualVatAmount)) : 0));
       }
-      if (editing && customerId) formData.set("customerId", customerId);
+      if (customerId) formData.set("customerId", customerId);
       const result = editing ? await updateOrderDocuments(formData) : await issueManualDocuments(formData);
       if (result && "error" in result && result.error) {
         setError(result.error);
@@ -182,9 +182,9 @@ export function IssueDocsForm({
           : "Счёт и акт создаются сразу и привязываются к этой заявке. Можно заполнить строки вручную — отчёт водителя не обязателен."}
       </p>
 
-      {editing && customers.length > 0 ? (
+      {customers.length > 0 ? (
         <div className="space-y-2">
-          <Field label="Заказчик в счёте и акте">
+          <Field label="Заказчик">
             <Input
               onChange={(e) => setCustomerQuery(e.target.value)}
               placeholder="Поиск по имени или телефону"
@@ -368,7 +368,7 @@ export function IssueDocsForm({
             </div>
             {vatRate > 0 ? (
               <div className="flex justify-between py-0.5">
-                <span>НДС {vatRate}%</span>
+                <span>Сумма НДС {vatRate}% -</span>
                 <span>{money(calc.vatAmount)}</span>
               </div>
             ) : null}

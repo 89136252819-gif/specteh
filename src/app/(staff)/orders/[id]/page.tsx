@@ -21,6 +21,7 @@ import { IssueDocsForm } from "@/components/issue-docs-form";
 import { EditDocsButton } from "@/components/edit-docs-button";
 import { ForceOrderStatusForm } from "@/components/force-order-status-form";
 import { OrderBasicsEditor } from "@/components/order-basics-editor";
+import { OrderCustomerEditor } from "@/components/order-customer-editor";
 import { OrderPaymentForm } from "@/components/order-payment-form";
 import { PriceAdjustForm } from "@/components/price-adjust-form";
 import { OrderAssignForm } from "@/components/order-assign-form";
@@ -65,12 +66,10 @@ export default async function OrderDetailPage({
       orderBy: { createdAt: "desc" },
       take: 40,
     }),
-    order.invoice
-      ? prisma.customer.findMany({
-          orderBy: { name: "asc" },
-          select: { id: true, name: true, phone: true },
-        })
-      : Promise.resolve([] as { id: string; name: string; phone: string }[]),
+    prisma.customer.findMany({
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, phone: true },
+    }),
   ]);
   const orgs = Object.fromEntries(
     organizations.map((org) => [org.paymentMethod, { vatRate: org.vatRate, shortName: org.shortName }]),
@@ -115,6 +114,15 @@ export default async function OrderDetailPage({
           <CardBody className="grid gap-3 sm:grid-cols-2 text-sm">
             <Info label="Заказчик" value={order.customer.name} />
             <Info label="Телефон заказчика" value={order.customer.phone} />
+            {canEditBasics ? (
+              <div className="sm:col-span-2">
+                <OrderCustomerEditor
+                  customerId={order.customerId}
+                  customers={customers}
+                  orderId={order.id}
+                />
+              </div>
+            ) : null}
             <div className="sm:col-span-2 space-y-2">
               <Info label="Объект" value={order.address} />
               <AddressMap address={order.address} />
@@ -245,7 +253,7 @@ export default async function OrderDetailPage({
                 ))}
                 {preview.vatRate > 0 ? (
                   <div className="flex justify-between py-0.5">
-                    <span>НДС {preview.vatRate}%</span>
+                    <span>Сумма НДС {preview.vatRate}% -</span>
                     <span>{money(preview.vatAmount)}</span>
                   </div>
                 ) : null}
@@ -267,6 +275,8 @@ export default async function OrderDetailPage({
           </CardHeader>
           <CardBody>
             <IssueDocsForm
+              customerId={order.customerId}
+              customers={customers}
               initialLines={
                 preview?.lines ||
                 parseBillingJson(order.report?.billingJson)?.lines ||

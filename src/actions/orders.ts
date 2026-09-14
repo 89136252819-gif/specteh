@@ -265,6 +265,57 @@ export async function updateOrderBasics(formData: FormData) {
   revalidatePath("/driver");
 }
 
+export async function updateOrderCustomer(formData: FormData) {
+  const user = await requireStaff();
+  const orderId = String(formData.get("orderId") || "");
+  if (!orderId) return { ok: false as const, error: "Нет заявки" };
+
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { customer: { select: { id: true, name: true } } },
+  });
+  if (!order) return { ok: false as const, error: "Заявка не найдена" };
+  if (order.status === ORDER_STATUSES.CANCELLED || order.status === ORDER_STATUSES.PAID) {
+    return { ok: false as const, error: "Заказчика в этой заявке уже нельзя сменить" };
+  }
+
+  const customerId = await resolveCustomerId(formData, order.paymentMethod);
+  if (!customerId) {
+    return { ok: false as const, error: "Выберите заказчика из базы или заполните нового" };
+  }
+  if (customerId === order.customerId) return { ok: true as const };
+
+  const customer = await prisma.customer.findUnique({
+    where: { id: customerId },
+    select: { id: true, name: true },
+  });
+  if (!customer) return { ok: false as const, error: "Заказчик не найден" };
+
+  await prisma.order.update({
+    where: { id: orderId },
+    data: { customerId },
+  });
+
+  await writeAudit({
+    actorId: user.id,
+    actorName: user.name,
+    action: "CHANGE_CUSTOMER",
+    entity: "Order",
+    entityId: orderId,
+    orderId,
+    detail: `${order.customer.name} → ${customer.name}`,
+  });
+
+  revalidatePath("/orders");
+  revalidatePath(`/orders/${orderId}`);
+  revalidatePath("/customers");
+  revalidatePath("/documents");
+  revalidatePath("/finance");
+  revalidatePath("/");
+  revalidateDispatch();
+  return { ok: true as const };
+}
+
 export async function copyOrder(orderId: string) {
   const user = await requireStaff();
   const src = await prisma.order.findUnique({ where: { id: orderId } });
@@ -919,6 +970,13 @@ export async function issueManualDocuments(formData: FormData) {
   const paymentMethod = String(formData.get("paymentMethod") || order.paymentMethod);
   const applied = await applyOrderPayment(orderId, paymentMethod, Number(formData.get("vatRate")));
   if (!applied) return { ok: false as const, error: "Нет юрлица для выбранной оплаты" };
+
+  const customerId = String(formData.get("customerId") || "").trim();
+  if (customerId && customerId !== order.customerId) {
+    const customer = await prisma.customer.findUnique({ where: { id: customerId }, select: { id: true } });
+    if (!customer) return { ok: false as const, error: "Заказчик не найден" };
+    await prisma.order.update({ where: { id: orderId }, data: { customerId } });
+  }
 
   const calcBase = totalsFromLines(parseLinePayload(formData.get("lines")), applied.vatRate);
   const manual = parseManualTotals(formData);

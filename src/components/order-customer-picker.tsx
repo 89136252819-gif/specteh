@@ -9,10 +9,16 @@ import { cn, money } from "@/lib/utils";
 
 type CustomerOption = { id: string; name: string; phone: string; debt?: number };
 
-export function OrderCustomerPicker({ customers }: { customers: CustomerOption[] }) {
+export function OrderCustomerPicker({
+  customers,
+  defaultCustomerId = "",
+}: {
+  customers: CustomerOption[];
+  defaultCustomerId?: string;
+}) {
   const [mode, setMode] = useState<"existing" | "new">("existing");
   const [query, setQuery] = useState("");
-  const [selectedId, setSelectedId] = useState("");
+  const [selectedId, setSelectedId] = useState(defaultCustomerId);
   const [type, setType] = useState("INDIVIDUAL");
   const [name, setName] = useState("");
   const [contact, setContact] = useState("");
