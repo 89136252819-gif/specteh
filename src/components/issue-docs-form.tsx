@@ -15,6 +15,8 @@ function uid() {
   return Math.random().toString(36).slice(2, 9);
 }
 
+const DATE_INPUT_RE = /^\d{4}-\d{2}-\d{2}$/;
+
 type LineRow = DocLine & { key: string };
 
 export function IssueDocsForm({
@@ -29,6 +31,8 @@ export function IssueDocsForm({
   paymentPurpose: initialPaymentPurpose = "",
   initialTotal,
   initialVatAmount,
+  invoiceDate: initialInvoiceDate = "",
+  actDate: initialActDate = "",
   onSaved,
 }: {
   orderId: string;
@@ -42,6 +46,8 @@ export function IssueDocsForm({
   paymentPurpose?: string;
   initialTotal?: number;
   initialVatAmount?: number;
+  invoiceDate?: string;
+  actDate?: string;
   onSaved?: () => void;
 }) {
   const [paymentMethod, setPaymentMethod] = useState(initialPayment);
@@ -49,6 +55,8 @@ export function IssueDocsForm({
   const [customerId, setCustomerId] = useState(initialCustomerId || "");
   const [customerQuery, setCustomerQuery] = useState("");
   const [paymentPurpose, setPaymentPurpose] = useState(initialPaymentPurpose);
+  const [invoiceDate, setInvoiceDate] = useState(initialInvoiceDate);
+  const [actDate, setActDate] = useState(initialActDate);
   const [lines, setLines] = useState<LineRow[]>(() =>
     (initialLines?.length
       ? initialLines
@@ -131,6 +139,10 @@ export function IssueDocsForm({
     start(async () => {
       setError("");
       setOk(false);
+      if (editing && (!DATE_INPUT_RE.test(invoiceDate) || !DATE_INPUT_RE.test(actDate))) {
+        setError("Укажите дату счёта и дату акта");
+        return;
+      }
       if (manual) {
         const total = Number(manualTotal);
         if (!Number.isFinite(total) || total <= 0) {
@@ -161,6 +173,10 @@ export function IssueDocsForm({
         formData.set("manualVatAmount", String(vatRate > 0 ? roundMoney(Number(manualVatAmount)) : 0));
       }
       if (customerId) formData.set("customerId", customerId);
+      if (editing) {
+        formData.set("invoiceIssuedAt", invoiceDate);
+        formData.set("actIssuedAt", actDate);
+      }
       const result = editing ? await updateOrderDocuments(formData) : await issueManualDocuments(formData);
       if (result && "error" in result && result.error) {
         setError(result.error);
@@ -178,7 +194,7 @@ export function IssueDocsForm({
     <div className="space-y-4">
       <p className="text-sm text-slate-500">
         {editing
-          ? "Можно поправить заказчика, позиции, НДС и способ оплаты. Счёт и акт обновятся вместе."
+          ? "Можно поправить заказчика, даты, позиции, НДС и способ оплаты. Счёт и акт обновятся вместе."
           : "Счёт и акт создаются сразу и привязываются к этой заявке. Можно заполнить строки вручную — отчёт водителя не обязателен."}
       </p>
 
@@ -215,6 +231,20 @@ export function IssueDocsForm({
               </li>
             ))}
           </ul>
+        </div>
+      ) : null}
+
+      {editing ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Дата счёта">
+            <Input onChange={(e) => setInvoiceDate(e.target.value)} type="date" value={invoiceDate} />
+          </Field>
+          <Field label="Дата акта">
+            <Input onChange={(e) => setActDate(e.target.value)} type="date" value={actDate} />
+          </Field>
+          <p className="text-xs text-slate-500 sm:col-span-2">
+            Дата уйдёт в PDF, выгрузку для бухгалтерии и отчёты. Срок оплаты сдвинется вместе с датой счёта.
+          </p>
         </div>
       ) : null}
 

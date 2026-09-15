@@ -19,6 +19,8 @@ export function EditDocsButton({
   paymentPurpose,
   initialTotal,
   initialVatAmount,
+  invoiceDate,
+  actDate,
 }: {
   orderId: string;
   paymentMethod: string;
@@ -30,6 +32,8 @@ export function EditDocsButton({
   paymentPurpose: string;
   initialTotal?: number;
   initialVatAmount?: number;
+  invoiceDate: string;
+  actDate: string;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -51,7 +55,7 @@ export function EditDocsButton({
               <h3 className="text-lg font-extrabold text-navy" id="edit-docs-title">
                 Редактировать счёт и акт
               </h3>
-              <p className="mt-1 text-sm text-slate-500">Заказчик, позиции, НДС и способ оплаты</p>
+              <p className="mt-1 text-sm text-slate-500">Заказчик, даты, позиции, НДС и способ оплаты</p>
             </div>
             <button
               aria-label="Закрыть"
@@ -64,9 +68,11 @@ export function EditDocsButton({
           </div>
           <div className="overflow-y-auto px-5 py-4">
             <IssueDocsForm
+              actDate={actDate}
               customerId={customerId}
               customers={customers}
               initialLines={initialLines}
+              invoiceDate={invoiceDate}
               initialTotal={initialTotal}
               initialVatAmount={initialVatAmount}
               mode="edit"

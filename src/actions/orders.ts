@@ -8,7 +8,7 @@ import { notifyStaff } from "@/lib/notifications";
 import { sendSms } from "@/lib/sms";
 import { calculateFromReport, getRatesForOrder, parseBillingJson, resolveVatRate, totalsFromLines, applyManualTotals, type DocLine } from "@/lib/pricing";
 import { roundMoney } from "@/lib/pricing-shared";
-import { parseOmskDatetimeLocal, publicAppUrl, randomToken, formatDriverWhen } from "@/lib/utils";
+import { formatDate, parseOmskDatetimeLocal, publicAppUrl, randomToken, formatDriverWhen, withOmskDate } from "@/lib/utils";
 import {
   CUSTOMER_TYPES,
   ORDER_STATUSES,
@@ -1140,7 +1140,23 @@ async function createBoundDocuments(input: {
   return { ok: true as const };
 }
 
-/** Правка уже выставленных счёта и акта (позиции, НДС, способ оплаты). */
+type DocDateResult = { ok: true; date: Date } | { ok: false; error: string };
+
+/** Дата документа из input[type=date]: меняем календарный день, время суток сохраняем. */
+function parseDocDate(raw: FormDataEntryValue | null, current: Date, label: string): DocDateResult {
+  const value = String(raw || "").trim();
+  if (!value) return { ok: true, date: current };
+  const next = withOmskDate(current, value);
+  if (!next) return { ok: false, error: `${label}: неверная дата` };
+  const maxYear = new Date().getFullYear() + 1;
+  const year = Number(value.slice(0, 4));
+  if (year < 2020 || year > maxYear) {
+    return { ok: false, error: `${label}: год должен быть от 2020 до ${maxYear}` };
+  }
+  return { ok: true, date: next };
+}
+
+/** Правка уже выставленных счёта и акта (даты, позиции, НДС, способ оплаты). */
 export async function updateOrderDocuments(formData: FormData) {
   const user = await requireStaff();
   const orderId = String(formData.get("orderId") || "");
@@ -1161,6 +1177,18 @@ export async function updateOrderDocuments(formData: FormData) {
   if (order.status === ORDER_STATUSES.CANCELLED) {
     return { ok: false as const, error: "Заявка отменена" };
   }
+
+  const invoiceDate = parseDocDate(formData.get("invoiceIssuedAt"), order.invoice.issuedAt, "Дата счёта");
+  if (!invoiceDate.ok) return { ok: false as const, error: invoiceDate.error };
+  const actDate = parseDocDate(formData.get("actIssuedAt"), order.act.issuedAt, "Дата акта");
+  if (!actDate.ok) return { ok: false as const, error: actDate.error };
+  const invoiceIssuedAt = invoiceDate.date;
+  const actIssuedAt = actDate.date;
+  const invoiceShiftMs = invoiceIssuedAt.getTime() - order.invoice.issuedAt.getTime();
+  const dueAt =
+    order.invoice.dueAt && invoiceShiftMs !== 0
+      ? new Date(order.invoice.dueAt.getTime() + invoiceShiftMs)
+      : order.invoice.dueAt;
 
   const paymentMethod = String(formData.get("paymentMethod") || order.paymentMethod);
   const applied = await applyOrderPayment(orderId, paymentMethod, Number(formData.get("vatRate")));
@@ -1183,15 +1211,23 @@ export async function updateOrderDocuments(formData: FormData) {
   }
 
   const paymentPurposeRaw = String(formData.get("paymentPurpose") || "").trim();
+  const autoPurposeBefore = defaultPaymentPurpose({
+    invoiceNumber: order.invoice.number,
+    issuedAt: order.invoice.issuedAt,
+    orderNumber: order.number,
+    total: order.invoice.amount,
+    vatRate: order.invoice.vatRate ?? applied.vatRate,
+  });
   const paymentPurpose =
-    paymentPurposeRaw ||
-    defaultPaymentPurpose({
-      invoiceNumber: order.invoice.number,
-      issuedAt: order.invoice.issuedAt,
-      orderNumber: order.number,
-      total: calc.total,
-      vatRate: calc.vatRate,
-    });
+    !paymentPurposeRaw || paymentPurposeRaw === autoPurposeBefore
+      ? defaultPaymentPurpose({
+          invoiceNumber: order.invoice.number,
+          issuedAt: invoiceIssuedAt,
+          orderNumber: order.number,
+          total: calc.total,
+          vatRate: calc.vatRate,
+        })
+      : paymentPurposeRaw;
 
   const paid = order.invoice.payments.reduce((sum, payment) => sum + payment.amount, 0);
   if (paid > calc.total + 0.01) {
@@ -1225,6 +1261,8 @@ export async function updateOrderDocuments(formData: FormData) {
         organizationId: applied.org.id,
         status,
         paymentPurpose,
+        issuedAt: invoiceIssuedAt,
+        dueAt,
       },
     });
     await tx.act.update({
@@ -1235,6 +1273,7 @@ export async function updateOrderDocuments(formData: FormData) {
         vatRate: calc.vatRate,
         linesJson,
         organizationId: applied.org.id,
+        issuedAt: actIssuedAt,
       },
     });
     if (order.report) {
@@ -1245,6 +1284,13 @@ export async function updateOrderDocuments(formData: FormData) {
     }
   });
 
+  const detailParts = [`${order.invoice.number} / ${order.act.number} → ${calc.total} ₽`];
+  if (customerId !== order.customerId) detailParts.push(`заказчик ${customerName}`);
+  if (invoiceShiftMs !== 0) detailParts.push(`дата счёта ${formatDate(invoiceIssuedAt)}`);
+  if (actIssuedAt.getTime() !== order.act.issuedAt.getTime()) {
+    detailParts.push(`дата акта ${formatDate(actIssuedAt)}`);
+  }
+
   await writeAudit({
     actorId: user.id,
     actorName: user.name,
@@ -1252,10 +1298,7 @@ export async function updateOrderDocuments(formData: FormData) {
     entity: "Order",
     entityId: orderId,
     orderId,
-    detail:
-      customerId !== order.customerId
-        ? `${order.invoice.number} / ${order.act.number} → ${calc.total} ₽ · заказчик ${customerName}`
-        : `${order.invoice.number} / ${order.act.number} → ${calc.total} ₽`,
+    detail: detailParts.join(" · "),
   });
 
   revalidatePath(`/orders/${orderId}`);

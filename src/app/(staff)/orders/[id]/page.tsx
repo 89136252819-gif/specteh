@@ -8,7 +8,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Field, Input, Select, Textarea } from "@/components/ui/fields";
 import { StatusBadge } from "@/components/ui/badge";
 import { SubmitButton } from "@/components/submit-button";
-import { formatDateTime, money, parsePhotos } from "@/lib/utils";
+import { formatDateTime, money, parsePhotos, toDateInputInTz } from "@/lib/utils";
 import { invoiceStatusLabel, PAYMENT_METHOD_LABELS, PAYMENT_METHODS, ROLES, AUDIT_ACTION_LABELS, type PaymentMethod } from "@/lib/constants";
 import { defaultPaymentPurpose, resolvePaymentPurpose } from "@/lib/invoice-purpose";
 import { PdfLink } from "@/components/pdf-link";
@@ -331,11 +331,13 @@ export default async function OrderDetailPage({
               </form>
             ) : null}
             <EditDocsButton
+              actDate={toDateInputInTz(order.act.issuedAt)}
               customerId={order.customerId}
               customers={customers}
               initialLines={linesFromJson(order.invoice.linesJson)}
               initialTotal={order.invoice.amount}
               initialVatAmount={order.invoice.vatAmount}
+              invoiceDate={toDateInputInTz(order.invoice.issuedAt)}
               orderId={order.id}
               orgs={orgs}
               paymentMethod={order.paymentMethod}
