@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { cn } from "@/lib/utils";
 
 export function CenterModal({
   open,
@@ -87,11 +88,13 @@ export function CenterModal({
       <div
         aria-labelledby={labelledBy}
         aria-modal="true"
-        className={`anim-pop relative z-10 max-h-[min(92dvh,100%)] w-full overflow-y-auto overscroll-contain bg-white shadow-[0_24px_80px_rgba(31,41,51,0.28)] ring-1 ring-slate-200 ${
+        className={cn(
+          "anim-pop relative z-10 max-h-[min(92dvh,100%)] w-full overscroll-contain bg-white shadow-[0_24px_80px_rgba(31,41,51,0.28)] ring-1 ring-slate-200",
           placement === "center"
             ? "rounded-3xl sm:max-h-[min(88vh,44rem)]"
-            : "rounded-t-3xl pb-[env(safe-area-inset-bottom,0px)] sm:max-h-[min(88vh,44rem)] sm:rounded-3xl"
-        } ${className}`}
+            : "rounded-t-3xl pb-[env(safe-area-inset-bottom,0px)] sm:max-h-[min(88vh,44rem)] sm:rounded-3xl",
+          className,
+        )}
         onClick={(event) => event.stopPropagation()}
         role="dialog"
       >

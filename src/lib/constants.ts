@@ -26,6 +26,7 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   VERIFY_REPORT: "Проверка отчёта",
   GENERATE_DOCS: "Документы",
   EDIT_DOCS: "Правка документов",
+  CHANGE_CUSTOMER: "Смена заказчика",
   ADVANCE: "Статус с канбана",
   PAYMENT: "Оплата",
   REPEAT: "Повтор",

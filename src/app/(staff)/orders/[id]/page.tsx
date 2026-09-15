@@ -5,10 +5,10 @@ import { requireStaff } from "@/lib/auth";
 import { cancelOrder, recordPayment } from "@/actions/orders";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { Field, Input, Select, Textarea } from "@/components/ui/fields";
+import { Field, Input, Textarea } from "@/components/ui/fields";
 import { StatusBadge } from "@/components/ui/badge";
 import { SubmitButton } from "@/components/submit-button";
-import { formatDateTime, money, parsePhotos } from "@/lib/utils";
+import { formatDateTime, money, parsePhotos, toDateInputInTz } from "@/lib/utils";
 import { invoiceStatusLabel, PAYMENT_METHOD_LABELS, PAYMENT_METHODS, ROLES, AUDIT_ACTION_LABELS, type PaymentMethod } from "@/lib/constants";
 import { defaultPaymentPurpose, resolvePaymentPurpose } from "@/lib/invoice-purpose";
 import { PdfLink } from "@/components/pdf-link";
@@ -17,11 +17,9 @@ import { calculateFromReport, getRatesForOrder, parseBillingJson, resolveVatRate
 import { linesFromJson } from "@/lib/pdf-from-record";
 import { CopyOrderButton } from "@/components/copy-order-button";
 import { GenerateDocsButton } from "@/components/generate-docs-button";
-import { IssueDocsForm } from "@/components/issue-docs-form";
-import { EditDocsButton } from "@/components/edit-docs-button";
+import { EditDocsButton, IssueDocsButton } from "@/components/edit-docs-button";
+import { EditOrderButton } from "@/components/edit-order-button";
 import { ForceOrderStatusForm } from "@/components/force-order-status-form";
-import { OrderBasicsEditor } from "@/components/order-basics-editor";
-import { OrderPaymentForm } from "@/components/order-payment-form";
 import { PriceAdjustForm } from "@/components/price-adjust-form";
 import { OrderAssignForm } from "@/components/order-assign-form";
 import { OrderRepeatButtons } from "@/components/order-repeat-buttons";
@@ -65,18 +63,15 @@ export default async function OrderDetailPage({
       orderBy: { createdAt: "desc" },
       take: 40,
     }),
-    order.invoice
-      ? prisma.customer.findMany({
-          orderBy: { name: "asc" },
-          select: { id: true, name: true, phone: true },
-        })
-      : Promise.resolve([] as { id: string; name: string; phone: string }[]),
+    prisma.customer.findMany({
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, phone: true },
+    }),
   ]);
   const orgs = Object.fromEntries(
     organizations.map((org) => [org.paymentMethod, { vatRate: org.vatRate, shortName: org.shortName }]),
   );
   const displayVat = resolveVatRate(order.paymentMethod, order.vatRate, order.organization.vatRate);
-  const canEditPayment = !order.invoice && !["PAID", "CANCELLED"].includes(order.status);
   const canEditBasics = !["PAID", "CANCELLED"].includes(order.status);
   const canForceStatus = user.role === ROLES.ADMIN;
 
@@ -109,8 +104,44 @@ export default async function OrderDetailPage({
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
-          <CardHeader>
+          <CardHeader className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="font-semibold">Карточка заявки</h2>
+            {order.status !== "CANCELLED" ? (
+              <EditOrderButton
+                actDate={order.act ? toDateInputInTz(order.act.issuedAt) : ""}
+                address={order.address}
+                canEditBasics={canEditBasics}
+                comment={order.comment}
+                customerId={order.customerId}
+                customers={customers}
+                hasDocuments={Boolean(order.invoice && order.act)}
+                initialLines={order.invoice ? linesFromJson(order.invoice.linesJson) : preview?.lines}
+                initialTotal={order.invoice?.amount}
+                initialVatAmount={order.invoice?.vatAmount}
+                invoiceDate={order.invoice ? toDateInputInTz(order.invoice.issuedAt) : ""}
+                orderId={order.id}
+                orgs={orgs}
+                paymentMethod={order.paymentMethod}
+                paymentPurpose={
+                  order.invoice
+                    ? resolvePaymentPurpose(
+                        order.invoice.paymentPurpose,
+                        defaultPaymentPurpose({
+                          invoiceNumber: order.invoice.number,
+                          issuedAt: order.invoice.issuedAt,
+                          orderNumber: order.number,
+                          total: order.invoice.amount,
+                          vatRate: order.invoice.vatRate ?? displayVat,
+                        }),
+                      )
+                    : ""
+                }
+                scheduledAt={order.scheduledAt}
+                siteContact={order.siteContact}
+                sitePhone={order.sitePhone}
+                vatRate={order.invoice?.vatRate ?? displayVat}
+              />
+            ) : null}
           </CardHeader>
           <CardBody className="grid gap-3 sm:grid-cols-2 text-sm">
             <Info label="Заказчик" value={order.customer.name} />
@@ -126,37 +157,13 @@ export default async function OrderDetailPage({
               value={order.equipment ? `${order.equipment.name} · ${order.equipment.plateNumber}` : "не назначена"}
             />
             <Info label="Водитель" value={order.driver?.user.name || "не назначен"} />
-            {canEditPayment &&
-            !(preview && (order.status === "REPORT_SUBMITTED" || (order.status === "VERIFIED" && !order.invoice))) ? (
-              <OrderPaymentForm
-                orderId={order.id}
-                orgs={orgs}
-                paymentMethod={order.paymentMethod}
-                vatRate={order.vatRate}
-              />
-            ) : (
-              <>
-                <Info label="Способ оплаты" value={PAYMENT_METHOD_LABELS[order.paymentMethod as PaymentMethod]} />
-                <Info
-                  label="НДС"
-                  value={order.paymentMethod === PAYMENT_METHODS.CASHLESS_VAT ? `${displayVat}%` : "не начисляется"}
-                />
-              </>
-            )}
+            <Info label="Способ оплаты" value={PAYMENT_METHOD_LABELS[order.paymentMethod as PaymentMethod]} />
+            <Info
+              label="НДС"
+              value={order.paymentMethod === PAYMENT_METHODS.CASHLESS_VAT ? `${displayVat}%` : "не начисляется"}
+            />
             <Info label="Юрлицо" value={order.organization.shortName} />
             <Info label="Комментарий" value={order.comment || "—"} />
-            {canEditBasics ? (
-              <div className="sm:col-span-2">
-                <OrderBasicsEditor
-                  address={order.address}
-                  comment={order.comment}
-                  orderId={order.id}
-                  scheduledAt={order.scheduledAt}
-                  siteContact={order.siteContact}
-                  sitePhone={order.sitePhone}
-                />
-              </div>
-            ) : null}
           </CardBody>
         </Card>
 
@@ -245,7 +252,7 @@ export default async function OrderDetailPage({
                 ))}
                 {preview.vatRate > 0 ? (
                   <div className="flex justify-between py-0.5">
-                    <span>НДС {preview.vatRate}%</span>
+                    <span>Сумма НДС {preview.vatRate}% -</span>
                     <span>{money(preview.vatAmount)}</span>
                   </div>
                 ) : null}
@@ -262,11 +269,11 @@ export default async function OrderDetailPage({
 
       {!order.invoice && order.status !== "CANCELLED" ? (
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="font-semibold">Выставить счёт и акт</h2>
-          </CardHeader>
-          <CardBody>
-            <IssueDocsForm
+            <IssueDocsButton
+              customerId={order.customerId}
+              customers={customers}
               initialLines={
                 preview?.lines ||
                 parseBillingJson(order.report?.billingJson)?.lines ||
@@ -277,14 +284,44 @@ export default async function OrderDetailPage({
               paymentMethod={order.paymentMethod}
               vatRate={displayVat}
             />
+          </CardHeader>
+          <CardBody>
+            <p className="text-sm text-slate-500">
+              Заказчик, способ оплаты, НДС, назначение платежа, позиции и итоги заполняются во всплывающем окне.
+            </p>
           </CardBody>
         </Card>
       ) : null}
 
       {order.invoice && order.act ? (
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="font-semibold">Документы и оплата</h2>
+            {order.status !== "CANCELLED" ? (
+              <EditDocsButton
+                actDate={toDateInputInTz(order.act.issuedAt)}
+                customerId={order.customerId}
+                customers={customers}
+                initialLines={linesFromJson(order.invoice.linesJson)}
+                initialTotal={order.invoice.amount}
+                initialVatAmount={order.invoice.vatAmount}
+                invoiceDate={toDateInputInTz(order.invoice.issuedAt)}
+                orderId={order.id}
+                orgs={orgs}
+                paymentMethod={order.paymentMethod}
+                paymentPurpose={resolvePaymentPurpose(
+                  order.invoice.paymentPurpose,
+                  defaultPaymentPurpose({
+                    invoiceNumber: order.invoice.number,
+                    issuedAt: order.invoice.issuedAt,
+                    orderNumber: order.number,
+                    total: order.invoice.amount,
+                    vatRate: order.invoice.vatRate ?? displayVat,
+                  }),
+                )}
+                vatRate={order.invoice.vatRate ?? displayVat}
+              />
+            ) : null}
           </CardHeader>
           <CardBody className="space-y-4">
             <div className="flex flex-wrap gap-4 text-sm">
@@ -320,27 +357,6 @@ export default async function OrderDetailPage({
                 <SubmitButton variant="success">Отметить оплату</SubmitButton>
               </form>
             ) : null}
-            <EditDocsButton
-              customerId={order.customerId}
-              customers={customers}
-              initialLines={linesFromJson(order.invoice.linesJson)}
-              initialTotal={order.invoice.amount}
-              initialVatAmount={order.invoice.vatAmount}
-              orderId={order.id}
-              orgs={orgs}
-              paymentMethod={order.paymentMethod}
-              paymentPurpose={resolvePaymentPurpose(
-                order.invoice.paymentPurpose,
-                defaultPaymentPurpose({
-                  invoiceNumber: order.invoice.number,
-                  issuedAt: order.invoice.issuedAt,
-                  orderNumber: order.number,
-                  total: order.invoice.amount,
-                  vatRate: order.invoice.vatRate ?? displayVat,
-                }),
-              )}
-              vatRate={order.invoice.vatRate ?? displayVat}
-            />
           </CardBody>
         </Card>
       ) : null}
