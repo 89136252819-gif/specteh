@@ -26,6 +26,7 @@ export function IssueDocsForm({
   orgs,
   initialLines,
   mode = "create",
+  layout = "inline",
   customerId: initialCustomerId,
   customers = [],
   paymentPurpose: initialPaymentPurpose = "",
@@ -34,6 +35,7 @@ export function IssueDocsForm({
   invoiceDate: initialInvoiceDate = "",
   actDate: initialActDate = "",
   onSaved,
+  onCancel,
 }: {
   orderId: string;
   paymentMethod: string;
@@ -41,6 +43,7 @@ export function IssueDocsForm({
   orgs: PaymentOrgMap;
   initialLines?: DocLine[];
   mode?: "create" | "edit";
+  layout?: "inline" | "modal";
   customerId?: string;
   customers?: { id: string; name: string; phone: string }[];
   paymentPurpose?: string;
@@ -49,6 +52,7 @@ export function IssueDocsForm({
   invoiceDate?: string;
   actDate?: string;
   onSaved?: () => void;
+  onCancel?: () => void;
 }) {
   const [paymentMethod, setPaymentMethod] = useState(initialPayment);
   const [vatRate, setVatRate] = useState(initialVat);
@@ -182,16 +186,17 @@ export function IssueDocsForm({
         setError(result.error);
         return;
       }
-      if (editing) {
-        setOk(true);
-        router.refresh();
-        onSaved?.();
-      }
+      setOk(true);
+      router.refresh();
+      onSaved?.();
     });
   }
 
-  return (
-    <div className="space-y-4">
+  const inModal = layout === "modal";
+  const submitLabel = pending ? "Сохраняем…" : editing ? "Сохранить изменения" : "Выставить счёт и акт";
+
+  const fields = (
+    <>
       <p className="text-sm text-slate-500">
         {editing
           ? "Можно поправить заказчика, даты, позиции, НДС и способ оплаты. Счёт и акт обновятся вместе."
@@ -410,12 +415,43 @@ export function IssueDocsForm({
         )}
       </div>
 
-      {error ? <p className="text-sm font-semibold text-rose-700">{error}</p> : null}
-      {ok ? <p className="text-sm font-semibold text-emerald-700">Сохранено — PDF обновится при следующем открытии</p> : null}
+      {inModal ? null : (
+        <>
+          {error ? <p className="text-sm font-semibold text-rose-700">{error}</p> : null}
+          {ok ? (
+            <p className="text-sm font-semibold text-emerald-700">Сохранено — PDF обновится при следующем открытии</p>
+          ) : null}
+          <Button disabled={pending || !orgName} onClick={submit} type="button">
+            {submitLabel}
+          </Button>
+        </>
+      )}
+    </>
+  );
 
-      <Button disabled={pending || !orgName} onClick={submit} type="button">
-        {pending ? "Сохраняем…" : editing ? "Сохранить изменения" : "Выставить счёт и акт"}
-      </Button>
+  if (!inModal) {
+    return <div className="space-y-4">{fields}</div>;
+  }
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">{fields}</div>
+      <div className="flex shrink-0 flex-col gap-2 border-t border-slate-100 bg-white px-5 py-4">
+        {error ? <p className="text-sm font-semibold text-rose-700">{error}</p> : null}
+        {ok ? (
+          <p className="text-sm font-semibold text-emerald-700">Сохранено — PDF обновится при следующем открытии</p>
+        ) : null}
+        <div className="flex flex-wrap gap-2">
+          <Button disabled={pending || !orgName} onClick={submit} type="button">
+            {submitLabel}
+          </Button>
+          {onCancel ? (
+            <Button disabled={pending} onClick={onCancel} type="button" variant="secondary">
+              Отмена
+            </Button>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }

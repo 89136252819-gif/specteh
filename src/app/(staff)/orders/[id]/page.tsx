@@ -17,7 +17,7 @@ import { calculateFromReport, getRatesForOrder, parseBillingJson, resolveVatRate
 import { linesFromJson } from "@/lib/pdf-from-record";
 import { CopyOrderButton } from "@/components/copy-order-button";
 import { GenerateDocsButton } from "@/components/generate-docs-button";
-import { IssueDocsForm } from "@/components/issue-docs-form";
+import { EditDocsButton, IssueDocsButton } from "@/components/edit-docs-button";
 import { EditOrderButton } from "@/components/edit-order-button";
 import { ForceOrderStatusForm } from "@/components/force-order-status-form";
 import { PriceAdjustForm } from "@/components/price-adjust-form";
@@ -269,11 +269,9 @@ export default async function OrderDetailPage({
 
       {!order.invoice && order.status !== "CANCELLED" ? (
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="font-semibold">Выставить счёт и акт</h2>
-          </CardHeader>
-          <CardBody>
-            <IssueDocsForm
+            <IssueDocsButton
               customerId={order.customerId}
               customers={customers}
               initialLines={
@@ -286,14 +284,44 @@ export default async function OrderDetailPage({
               paymentMethod={order.paymentMethod}
               vatRate={displayVat}
             />
+          </CardHeader>
+          <CardBody>
+            <p className="text-sm text-slate-500">
+              Заказчик, способ оплаты, НДС, назначение платежа, позиции и итоги заполняются во всплывающем окне.
+            </p>
           </CardBody>
         </Card>
       ) : null}
 
       {order.invoice && order.act ? (
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="font-semibold">Документы и оплата</h2>
+            {order.status !== "CANCELLED" ? (
+              <EditDocsButton
+                actDate={toDateInputInTz(order.act.issuedAt)}
+                customerId={order.customerId}
+                customers={customers}
+                initialLines={linesFromJson(order.invoice.linesJson)}
+                initialTotal={order.invoice.amount}
+                initialVatAmount={order.invoice.vatAmount}
+                invoiceDate={toDateInputInTz(order.invoice.issuedAt)}
+                orderId={order.id}
+                orgs={orgs}
+                paymentMethod={order.paymentMethod}
+                paymentPurpose={resolvePaymentPurpose(
+                  order.invoice.paymentPurpose,
+                  defaultPaymentPurpose({
+                    invoiceNumber: order.invoice.number,
+                    issuedAt: order.invoice.issuedAt,
+                    orderNumber: order.number,
+                    total: order.invoice.amount,
+                    vatRate: order.invoice.vatRate ?? displayVat,
+                  }),
+                )}
+                vatRate={order.invoice.vatRate ?? displayVat}
+              />
+            ) : null}
           </CardHeader>
           <CardBody className="space-y-4">
             <div className="flex flex-wrap gap-4 text-sm">

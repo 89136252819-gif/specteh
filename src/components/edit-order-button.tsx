@@ -460,7 +460,7 @@ export function EditOrderButton({
 
           <div className="flex shrink-0 flex-wrap gap-2 border-t border-slate-100 bg-white px-5 py-4">
             <Button disabled={pending} type="submit">
-              {pending ? "Сохраняем…" : "Сохранить заявку"}
+              {pending ? "Сохраняем…" : "Сохранить изменения"}
             </Button>
             <Button disabled={pending} onClick={() => setOpen(false)} type="button" variant="secondary">
               Отмена
