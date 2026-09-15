@@ -283,7 +283,12 @@ export async function updateOrderCustomer(formData: FormData) {
   if (!customerId) {
     return { ok: false as const, error: "Выберите заказчика из базы или заполните нового" };
   }
-  if (customerId === order.customerId) return { ok: true as const };
+  if (customerId === order.customerId) {
+    return {
+      ok: false as const,
+      error: "Этот заказчик уже стоит в заявке. Нажмите на другого в списке.",
+    };
+  }
 
   const customer = await prisma.customer.findUnique({
     where: { id: customerId },
