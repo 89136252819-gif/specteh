@@ -321,6 +321,69 @@ export async function updateOrderCustomer(formData: FormData) {
   return { ok: true as const };
 }
 
+/** Все поля заявки из одного окна: заказчик, подача, оплата, при наличии — счёт и акт. */
+export async function updateOrderDetails(formData: FormData) {
+  const user = await requireStaff();
+  const orderId = String(formData.get("orderId") || "");
+  if (!orderId) return { ok: false as const, error: "Нет заявки" };
+
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: {
+      invoice: true,
+      act: true,
+      customer: { select: { id: true, name: true } },
+    },
+  });
+  if (!order) return { ok: false as const, error: "Заявка не найдена" };
+  if (order.status === ORDER_STATUSES.CANCELLED) {
+    return { ok: false as const, error: "Отменённую заявку нельзя изменить" };
+  }
+
+  if (order.status !== ORDER_STATUSES.PAID) {
+    const address = String(formData.get("address") || "").trim();
+    const when = parseOmskDatetimeLocal(String(formData.get("scheduledAt") || ""));
+    if (!address || !when) {
+      return { ok: false as const, error: "Укажите адрес и дату подачи" };
+    }
+    await updateOrderBasics(formData);
+  }
+
+  const paymentMethod = String(formData.get("paymentMethod") || order.paymentMethod);
+  const customerId = await resolveCustomerId(formData, paymentMethod);
+  if (!customerId) {
+    return { ok: false as const, error: "Выберите заказчика из базы или заполните нового" };
+  }
+  if (customerId !== order.customerId) {
+    const customer = await prisma.customer.findUnique({
+      where: { id: customerId },
+      select: { id: true, name: true },
+    });
+    if (!customer) return { ok: false as const, error: "Заказчик не найден" };
+    await prisma.order.update({ where: { id: orderId }, data: { customerId } });
+    await writeAudit({
+      actorId: user.id,
+      actorName: user.name,
+      action: "CHANGE_CUSTOMER",
+      entity: "Order",
+      entityId: orderId,
+      orderId,
+      detail: `${order.customer.name} → ${customer.name}`,
+    });
+  }
+
+  if (order.invoice && order.act) {
+    return updateOrderDocuments(formData);
+  }
+
+  await updateOrderPayment(formData);
+  revalidatePath("/orders");
+  revalidatePath(`/orders/${orderId}`);
+  revalidatePath("/");
+  revalidateDispatch();
+  return { ok: true as const };
+}
+
 export async function copyOrder(orderId: string) {
   const user = await requireStaff();
   const src = await prisma.order.findUnique({ where: { id: orderId } });
