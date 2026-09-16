@@ -89,7 +89,7 @@ export function CenterModal({
         aria-labelledby={labelledBy}
         aria-modal="true"
         className={cn(
-          "anim-pop relative z-10 max-h-[min(92dvh,100%)] w-full overscroll-contain bg-white shadow-[0_24px_80px_rgba(31,41,51,0.28)] ring-1 ring-slate-200",
+          "anim-pop relative z-10 max-h-[min(92dvh,100%)] w-full overflow-y-auto overscroll-contain bg-white shadow-[0_24px_80px_rgba(31,41,51,0.28)] ring-1 ring-slate-200",
           placement === "center"
             ? "rounded-3xl sm:max-h-[min(88vh,44rem)]"
             : "rounded-t-3xl pb-[env(safe-area-inset-bottom,0px)] sm:max-h-[min(88vh,44rem)] sm:rounded-3xl",
