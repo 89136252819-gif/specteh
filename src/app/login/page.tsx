@@ -8,36 +8,6 @@ import { BrandLogo } from "@/components/brand-logo";
 
 const FEATURES = ["Заявки и календарь", "Счета и акты", "Кабинет водителя"];
 
-function fillDemo(login: string, password: string) {
-  const loginEl = document.querySelector<HTMLInputElement>('input[name="login"]');
-  const passwordEl = document.querySelector<HTMLInputElement>('input[name="password"]');
-  if (loginEl) loginEl.value = login;
-  if (passwordEl) passwordEl.value = password;
-}
-
-function DemoAccount({
-  label,
-  hint,
-  login,
-  password,
-}: {
-  label: string;
-  hint: string;
-  login: string;
-  password: string;
-}) {
-  return (
-    <button
-      className="rounded-2xl bg-slate-50 px-3 py-2.5 text-left ring-1 ring-slate-100 transition hover:bg-menu-soft/50"
-      onClick={() => fillDemo(login, password)}
-      type="button"
-    >
-      {label}
-      <div className="break-all font-semibold text-navy">{hint}</div>
-    </button>
-  );
-}
-
 export default function LoginPage() {
   const [state, action, pending] = useActionState(loginAction, { error: "" });
 
@@ -101,7 +71,7 @@ export default function LoginPage() {
           </p>
           <form action={action} className="mt-7 space-y-4">
             <Field label="Логин">
-              <Input name="login" autoComplete="username" required placeholder="tlitke" />
+              <Input name="login" autoComplete="username" required />
             </Field>
             <Field label="Пароль">
               <Input name="password" type="password" autoComplete="current-password" required />
@@ -118,10 +88,6 @@ export default function LoginPage() {
               )}
             </Button>
           </form>
-          <div className="mt-7 grid grid-cols-1 gap-2 text-xs text-slate-500 sm:grid-cols-2">
-            <DemoAccount hint="tlitke / admin123" label="Главный менеджер" login="tlitke" password="admin123" />
-            <DemoAccount hint="ezaruchatsky / driver123" label="Водитель" login="ezaruchatsky" password="driver123" />
-          </div>
         </div>
       </div>
     </div>
