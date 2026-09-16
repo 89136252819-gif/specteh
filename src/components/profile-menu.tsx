@@ -62,10 +62,11 @@ export function ProfileMenu({
         </div>
       </button>
       <CenterModal
-        className="flex h-[min(88vh,40rem)] flex-col overflow-hidden sm:!max-h-[min(88vh,40rem)]"
+        className="max-w-xl h-[min(88vh,40rem)] overflow-hidden sm:!max-h-[min(88vh,40rem)]"
         labelledBy="profile-title"
         onClose={() => setOpen(false)}
         open={open}
+        placement="center"
       >
         <div className="flex h-full min-h-0 flex-col overflow-hidden">
           <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-100 px-4 py-4 sm:px-6 sm:py-5">
