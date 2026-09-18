@@ -110,6 +110,7 @@ export default async function OrderDetailPage({
               <EditOrderButton
                 actDate={order.act ? toDateInputInTz(order.act.issuedAt) : ""}
                 address={order.address}
+                siteName={order.siteName}
                 canEditBasics={canEditBasics}
                 comment={order.comment}
                 customerId={order.customerId}
@@ -146,8 +147,9 @@ export default async function OrderDetailPage({
           <CardBody className="grid gap-3 sm:grid-cols-2 text-sm">
             <Info label="Заказчик" value={order.customer.name} />
             <Info label="Телефон заказчика" value={order.customer.phone} />
+            <Info label="Объект" value={order.siteName || "—"} />
             <div className="sm:col-span-2 space-y-2">
-              <Info label="Объект" value={order.address} />
+              <Info label="Место подачи" value={order.address} />
               <AddressMap address={order.address} />
             </div>
             <Info label="Контакт на объекте" value={`${order.siteContact || "—"} ${order.sitePhone || ""}`} />

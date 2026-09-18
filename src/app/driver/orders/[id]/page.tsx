@@ -54,7 +54,11 @@ export default async function DriverOrderPage({ params }: { params: Promise<{ id
       <section className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-200/70">
         <div className="p-4">
           <div className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">Объект</div>
-          <p className="mt-1 break-words text-[17px] font-semibold leading-snug text-navy">{order.address}</p>
+          <p className="mt-1 break-words text-[17px] font-semibold leading-snug text-navy">
+            {order.siteName || "—"}
+          </p>
+          <div className="mt-3 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">Место подачи</div>
+          <p className="mt-1 break-words text-[15px] font-semibold leading-snug text-navy">{order.address}</p>
           <p className="mt-2 break-words text-sm text-slate-500">{order.customer.name}</p>
         </div>
         <div className="grid grid-cols-2 gap-px bg-slate-100">

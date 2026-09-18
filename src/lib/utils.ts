@@ -162,6 +162,14 @@ export function mapsHref(address: string) {
   return `https://yandex.ru/maps/?text=${encodeURIComponent(address)}`;
 }
 
+/** Объект и адрес подачи одной строкой для списков, PDF и уведомлений. */
+export function formatSiteLocation(siteName: string | null | undefined, address: string) {
+  const name = (siteName || "").trim();
+  const place = (address || "").trim();
+  if (name && place && name.toLowerCase() !== place.toLowerCase()) return `${name} · ${place}`;
+  return name || place;
+}
+
 /** Ссылка для людей (MAX, письма). IP из старого APP_URL подменяем на домен. */
 export function publicAppUrl() {
   const raw = (process.env.APP_URL || "").replace(/\/$/, "");

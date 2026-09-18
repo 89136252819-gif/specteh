@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ChevronRight, Clock, MapPin, Navigation, Phone, Truck } from "lucide-react";
 import { StatusBadge } from "@/components/ui/badge";
 import { DRIVER_NEXT_ACTION } from "@/lib/driver-ui";
-import { formatDriverWhen, mapsHref, phoneHref } from "@/lib/utils";
+import { formatDriverWhen, formatSiteLocation, mapsHref, phoneHref } from "@/lib/utils";
 
 type DriverOrderCardProps = {
   id: string;
@@ -10,6 +10,7 @@ type DriverOrderCardProps = {
   status: string;
   scheduledAt: Date | string;
   address: string;
+  siteName?: string | null;
   equipmentLabel: string;
   customerName?: string;
   contactPhone?: string | null;
@@ -22,6 +23,7 @@ export function DriverOrderCard({
   status,
   scheduledAt,
   address,
+  siteName,
   equipmentLabel,
   customerName,
   contactPhone,
@@ -48,7 +50,7 @@ export function DriverOrderCard({
         {customerName ? <div className="mt-2 break-words text-sm font-semibold text-slate-700">{customerName}</div> : null}
         <div className="mt-2 flex min-w-0 items-start gap-2 text-[15px] leading-snug text-navy">
           <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-menu-hover" />
-          <span className="min-w-0 break-words">{address}</span>
+          <span className="min-w-0 break-words">{formatSiteLocation(siteName, address)}</span>
         </div>
         <div className="mt-2 flex min-w-0 items-center gap-2 text-sm text-slate-500">
           <Truck className="h-4 w-4 shrink-0 text-slate-400" />

@@ -56,6 +56,7 @@ export default async function OrdersPage({
             number: order.number,
             scheduledAt: order.scheduledAt.toISOString(),
             address: order.address,
+            siteName: order.siteName,
             status: order.status,
             paymentMethod: order.paymentMethod,
             customerName: order.customer.name,

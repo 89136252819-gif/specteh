@@ -92,8 +92,11 @@ export default async function NewOrderPage({
             <Field label="Дата и время подачи">
               <Input name="scheduledAt" required type="datetime-local" defaultValue={defaultTime} />
             </Field>
-            <Field className="sm:col-span-2" label="Адрес объекта">
-              <AddressSuggest name="address" placeholder="Омск, улица, ориентир" required />
+            <Field className="sm:col-span-2" label="Объект">
+              <Input name="siteName" placeholder="ЖК, стройка, склад, название объекта" />
+            </Field>
+            <Field className="sm:col-span-2" label="Место подачи">
+              <AddressSuggest name="address" placeholder="Омск, улица, ориентир, въезд" required />
             </Field>
             <Field label="Контакт на объекте">
               <Input name="siteContact" />

@@ -8,7 +8,7 @@ import { notifyStaff } from "@/lib/notifications";
 import { sendSms } from "@/lib/sms";
 import { calculateFromReport, getRatesForOrder, parseBillingJson, resolveVatRate, totalsFromLines, applyManualTotals, type DocLine } from "@/lib/pricing";
 import { roundMoney } from "@/lib/pricing-shared";
-import { formatDate, parseOmskDatetimeLocal, publicAppUrl, randomToken, formatDriverWhen, withOmskDate } from "@/lib/utils";
+import { formatDate, formatSiteLocation, parseOmskDatetimeLocal, publicAppUrl, randomToken, formatDriverWhen, withOmskDate } from "@/lib/utils";
 import {
   CUSTOMER_TYPES,
   ORDER_STATUSES,
@@ -33,6 +33,10 @@ const LIVE_EQUIPMENT_STATUSES = new Set<string>([
 ]);
 
 const ALL_ORDER_STATUSES = new Set<string>(Object.values(ORDER_STATUSES));
+
+function readSiteName(formData: FormData) {
+  return String(formData.get("siteName") || "").trim() || null;
+}
 
 async function notifyIfCustomerMaxSkipped(input: {
   status: string;
@@ -135,7 +139,7 @@ export async function createOrder(formData: FormData) {
     redirect("/orders/new?error=" + encodeURIComponent("Выберите способ оплаты"));
   }
   if (!address) {
-    redirect("/orders/new?error=" + encodeURIComponent("Укажите адрес объекта"));
+    redirect("/orders/new?error=" + encodeURIComponent("Укажите место подачи"));
   }
   if (!when) {
     redirect("/orders/new?error=" + encodeURIComponent("Некорректная дата и время подачи"));
@@ -153,6 +157,7 @@ export async function createOrder(formData: FormData) {
       vatRate,
       equipmentTypeId,
       address,
+      siteName: readSiteName(formData),
       siteContact: String(formData.get("siteContact") || "") || null,
       sitePhone: String(formData.get("sitePhone") || "") || null,
       scheduledAt: when,
@@ -173,6 +178,7 @@ export async function updateOrderBasics(formData: FormData) {
   await requireStaff();
   const orderId = String(formData.get("orderId") || "");
   const address = String(formData.get("address") || "").trim();
+  const siteName = readSiteName(formData);
   const scheduledAt = String(formData.get("scheduledAt") || "");
   const when = parseOmskDatetimeLocal(scheduledAt);
   if (!orderId || !address || !when) return;
@@ -187,6 +193,7 @@ export async function updateOrderBasics(formData: FormData) {
   if (!order || order.status === ORDER_STATUSES.CANCELLED || order.status === "PAID") return;
 
   const prevAddress = order.address;
+  const prevSiteName = order.siteName || "";
   const prevWhen = order.scheduledAt.getTime();
   const siteContact = String(formData.get("siteContact") || "") || null;
   const sitePhone = String(formData.get("sitePhone") || "") || null;
@@ -196,6 +203,7 @@ export async function updateOrderBasics(formData: FormData) {
     where: { id: orderId },
     data: {
       address,
+      siteName,
       scheduledAt: when,
       siteContact,
       sitePhone,
@@ -205,6 +213,7 @@ export async function updateOrderBasics(formData: FormData) {
 
   const changed =
     prevAddress !== address ||
+    prevSiteName !== (siteName || "") ||
     prevWhen !== when.getTime() ||
     (order.siteContact || null) !== siteContact ||
     (order.sitePhone || null) !== sitePhone;
@@ -212,7 +221,8 @@ export async function updateOrderBasics(formData: FormData) {
   if (changed && order.driverId) {
     const datetime = formatDriverWhen(when);
     const details = [
-      prevAddress !== address ? `Адрес: ${address}` : null,
+      prevSiteName !== (siteName || "") ? `Объект: ${siteName || "—"}` : null,
+      prevAddress !== address ? `Место подачи: ${address}` : null,
       prevWhen !== when.getTime() ? `Время: ${datetime}` : null,
     ]
       .filter(Boolean)
@@ -344,7 +354,7 @@ export async function updateOrderDetails(formData: FormData) {
     const address = String(formData.get("address") || "").trim();
     const when = parseOmskDatetimeLocal(String(formData.get("scheduledAt") || ""));
     if (!address || !when) {
-      return { ok: false as const, error: "Укажите адрес и дату подачи" };
+      return { ok: false as const, error: "Укажите место подачи и дату" };
     }
     await updateOrderBasics(formData);
   }
@@ -398,6 +408,7 @@ export async function copyOrder(orderId: string) {
       vatRate: src.vatRate,
       equipmentTypeId: src.equipmentTypeId,
       address: src.address,
+      siteName: src.siteName,
       siteContact: src.siteContact,
       sitePhone: src.sitePhone,
       scheduledAt: src.scheduledAt,
@@ -518,7 +529,7 @@ export async function assignOrder(formData: FormData) {
       equipment: `${equipment.name} ${equipment.plateNumber}`,
       driver: driver.user.name,
       datetime,
-      address: order.address,
+      address: formatSiteLocation(order.siteName, order.address),
     },
   });
   await notifyIfCustomerMaxSkipped({
@@ -538,7 +549,7 @@ export async function assignOrder(formData: FormData) {
     vars: {
       number: order.number,
       datetime,
-      address: order.address,
+      address: formatSiteLocation(order.siteName, order.address),
       url: publicAppUrl(),
     },
   });
@@ -1483,6 +1494,7 @@ export async function repeatOrderInDays(orderId: string, days = 7) {
       vatRate: src.vatRate,
       equipmentTypeId: src.equipmentTypeId,
       address: src.address,
+      siteName: src.siteName,
       siteContact: src.siteContact,
       sitePhone: src.sitePhone,
       scheduledAt,
@@ -1520,6 +1532,7 @@ export async function saveOrderAsTemplate(orderId: string, name?: string) {
       vatRate: src.vatRate,
       equipmentTypeId: src.equipmentTypeId,
       address: src.address,
+      siteName: src.siteName,
       siteContact: src.siteContact,
       sitePhone: src.sitePhone,
       comment: src.comment,
@@ -1555,6 +1568,7 @@ export async function createOrderFromTemplate(templateId: string) {
       vatRate: tpl.vatRate ?? org.vatRate,
       equipmentTypeId: tpl.equipmentTypeId,
       address: tpl.address,
+      siteName: tpl.siteName,
       siteContact: tpl.siteContact,
       sitePhone: tpl.sitePhone,
       scheduledAt: when,

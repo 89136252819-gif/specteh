@@ -84,6 +84,7 @@ function Section({
     status: string;
     scheduledAt: Date;
     address: string;
+    siteName?: string | null;
     sitePhone?: string | null;
     customer: { name: string; phone: string };
     equipment: { name: string; plateNumber: string } | null;
@@ -97,6 +98,7 @@ function Section({
       {items.map((o) => (
         <DriverOrderCard
           address={o.address}
+          siteName={o.siteName}
           contactPhone={o.sitePhone || o.customer.phone}
           customerName={o.customer.name}
           equipmentLabel={equipmentLabel(o)}

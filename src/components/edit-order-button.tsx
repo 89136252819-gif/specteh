@@ -36,6 +36,7 @@ export function EditOrderButton({
   orderId,
   customerId,
   customers,
+  siteName,
   address,
   scheduledAt,
   siteContact,
@@ -56,6 +57,7 @@ export function EditOrderButton({
   orderId: string;
   customerId: string;
   customers: CustomerOption[];
+  siteName?: string | null;
   address: string;
   scheduledAt: string | Date;
   siteContact: string | null;
@@ -229,8 +231,11 @@ export function EditOrderButton({
             <Section title="Подача">
               {canEditBasics ? (
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Field className="sm:col-span-2" label="Адрес объекта">
-                    <AddressSuggest defaultValue={address} name="address" placeholder="Омск, улица, ориентир" required />
+                  <Field className="sm:col-span-2" label="Объект">
+                    <Input defaultValue={siteName || ""} name="siteName" placeholder="ЖК, стройка, склад, название объекта" />
+                  </Field>
+                  <Field className="sm:col-span-2" label="Место подачи">
+                    <AddressSuggest defaultValue={address} name="address" placeholder="Омск, улица, ориентир, въезд" required />
                   </Field>
                   <Field label="Дата и время подачи">
                     <Input defaultValue={toDatetimeLocal(scheduledAt)} name="scheduledAt" required type="datetime-local" />
@@ -246,7 +251,7 @@ export function EditOrderButton({
                   </Field>
                 </div>
               ) : (
-                <p className="text-sm text-slate-500">Адрес и время подачи в оплаченной заявке не меняются.</p>
+                <p className="text-sm text-slate-500">Объект и место подачи в оплаченной заявке не меняются.</p>
               )}
             </Section>
 
