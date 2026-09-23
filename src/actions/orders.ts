@@ -725,7 +725,7 @@ export async function cancelOrder(formData: FormData) {
 
 /** Только главный менеджер: принудительно поставить любой статус заявки. */
 export async function forceSetOrderStatus(formData: FormData) {
-  const user = await requireRoles([ROLES.ADMIN]);
+  const user = await requireRoles([ROLES.ADMIN, ROLES.SYSADMIN]);
   const orderId = String(formData.get("orderId") || "");
   const status = String(formData.get("status") || "") as OrderStatus;
   const note = String(formData.get("note") || "").trim();

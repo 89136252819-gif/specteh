@@ -73,7 +73,7 @@ export default async function OrderDetailPage({
   );
   const displayVat = resolveVatRate(order.paymentMethod, order.vatRate, order.organization.vatRate);
   const canEditBasics = !["PAID", "CANCELLED"].includes(order.status);
-  const canForceStatus = user.role === ROLES.ADMIN;
+  const canForceStatus = user.role === ROLES.ADMIN || user.role === ROLES.SYSADMIN;
 
   let preview = null;
   let rates: Awaited<ReturnType<typeof getRatesForOrder>> = [];

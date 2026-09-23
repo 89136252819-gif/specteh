@@ -35,8 +35,10 @@ function LogoutSubmit() {
 
 export function ProfileMenu({
   user,
+  canManageUsers = false,
 }: {
   user: { name: string; login: string; role: Role; phone: string | null };
+  canManageUsers?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [state, action] = useActionState(updateProfileAction, null);
@@ -128,9 +130,11 @@ export function ProfileMenu({
             </form>
 
             <div className="flex flex-wrap gap-2 text-xs font-semibold">
-              <Link className="inline-flex min-h-9 items-center rounded-full bg-slate-100 px-3 py-1.5 text-slate-600 hover:bg-menu-soft hover:text-menu-hover" href="/settings/users" onClick={() => setOpen(false)}>
-                Сотрудники
-              </Link>
+              {canManageUsers ? (
+                <Link className="inline-flex min-h-9 items-center rounded-full bg-slate-100 px-3 py-1.5 text-slate-600 hover:bg-menu-soft hover:text-menu-hover" href="/settings/users" onClick={() => setOpen(false)}>
+                  Сотрудники
+                </Link>
+              ) : null}
               <Link className="inline-flex min-h-9 items-center rounded-full bg-slate-100 px-3 py-1.5 text-slate-600 hover:bg-menu-soft hover:text-menu-hover" href="/settings/organizations" onClick={() => setOpen(false)}>
                 Организации
               </Link>

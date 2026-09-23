@@ -28,6 +28,7 @@ type Filter = "all" | "active" | "off";
 type Editor = "new" | string | null;
 
 const ROLE_TONE: Partial<Record<Role, string>> = {
+  SYSADMIN: "bg-violet-100 text-violet-900",
   ADMIN: "bg-menu-soft text-menu-hover",
   MANAGER: "bg-slate-200 text-navy",
   ACCOUNTANT: "bg-amber-100 text-amber-900",
@@ -41,6 +42,8 @@ function matches(user: StaffRecord, query: string) {
 const REMOVE_ERRORS = {
   self: "Свою учётную запись удалить нельзя.",
   last: "Нельзя удалить последнего сотрудника — иначе в кабинет никто не войдёт.",
+  forbidden: "Добавлять, удалять сотрудников и менять пароли может только системный администратор.",
+  lastAdmin: "Нельзя убрать последнего системного администратора.",
 } as const;
 
 export function StaffDirectory({
@@ -49,17 +52,19 @@ export function StaffDirectory({
   initialId,
   loginError,
   removeError,
+  canManage = false,
 }: {
   users: StaffRecord[];
   currentUserId: string;
   initialId?: string;
   loginError?: boolean;
   removeError?: keyof typeof REMOVE_ERRORS;
+  canManage?: boolean;
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
-  const [editor, setEditor] = useState<Editor>(() => initialId || (loginError ? "new" : null));
+  const [editor, setEditor] = useState<Editor>(() => (canManage ? initialId || (loginError ? "new" : null) : null));
   const [removing, setRemoving] = useState<StaffRecord | null>(null);
   const [pending, start] = useTransition();
 
@@ -82,6 +87,7 @@ export function StaffDirectory({
   }
 
   function openEditor(next: Editor) {
+    if (!canManage) return;
     setEditor(next);
     const href = next && next !== "new" ? `/settings/users?id=${next}` : "/settings/users";
     router.replace(href, { scroll: false });
@@ -116,10 +122,12 @@ export function StaffDirectory({
             <FilterChip active={filter === "off"} onClick={() => setFilter("off")}>
               Отключены
             </FilterChip>
-            <Button onClick={() => openEditor("new")} size="sm" type="button" variant="success">
-              <Plus className="h-4 w-4" />
-              Добавить
-            </Button>
+            {canManage ? (
+              <Button onClick={() => openEditor("new")} size="sm" type="button" variant="success">
+                <Plus className="h-4 w-4" />
+                Добавить
+              </Button>
+            ) : null}
           </div>
         </div>
 
@@ -147,17 +155,27 @@ export function StaffDirectory({
                     key={user.id}
                   >
                     <Td>
-                      <button
-                        className="flex min-w-0 items-center gap-3 text-left"
-                        onClick={() => openEditor(user.id)}
-                        type="button"
-                      >
-                        <PersonAvatar name={user.name} />
-                        <span className="min-w-0">
-                          <span className="block truncate font-semibold text-navy">{user.name}</span>
-                          <span className="block truncate text-xs text-slate-400">{user.login}</span>
-                        </span>
-                      </button>
+                      {canManage ? (
+                        <button
+                          className="flex min-w-0 items-center gap-3 text-left"
+                          onClick={() => openEditor(user.id)}
+                          type="button"
+                        >
+                          <PersonAvatar name={user.name} />
+                          <span className="min-w-0">
+                            <span className="block truncate font-semibold text-navy">{user.name}</span>
+                            <span className="block truncate text-xs text-slate-400">{user.login}</span>
+                          </span>
+                        </button>
+                      ) : (
+                        <div className="flex min-w-0 items-center gap-3 text-left">
+                          <PersonAvatar name={user.name} />
+                          <span className="min-w-0">
+                            <span className="block truncate font-semibold text-navy">{user.name}</span>
+                            <span className="block truncate text-xs text-slate-400">{user.login}</span>
+                          </span>
+                        </div>
+                      )}
                     </Td>
                     <Td>
                       <Badge className={ROLE_TONE[user.role as Role] || "bg-slate-100 text-slate-700"}>
@@ -183,20 +201,22 @@ export function StaffDirectory({
                       </Badge>
                     </Td>
                     <Td>
-                      <div className="flex flex-wrap justify-end gap-2">
-                        <Button onClick={() => openEditor(user.id)} size="sm" type="button" variant="secondary">
-                          Изменить
-                        </Button>
-                        {canRemoveOthers && user.id !== currentUserId ? (
-                          <button
-                            className="h-8 px-2 text-sm font-semibold text-stone-500 hover:text-stone-800 hover:underline"
-                            onClick={() => setRemoving(user)}
-                            type="button"
-                          >
-                            Удалить
-                          </button>
-                        ) : null}
-                      </div>
+                      {canManage ? (
+                        <div className="flex flex-wrap justify-end gap-2">
+                          <Button onClick={() => openEditor(user.id)} size="sm" type="button" variant="secondary">
+                            Изменить
+                          </Button>
+                          {canRemoveOthers && user.id !== currentUserId ? (
+                            <button
+                              className="h-8 px-2 text-sm font-semibold text-stone-500 hover:text-stone-800 hover:underline"
+                              onClick={() => setRemoving(user)}
+                              type="button"
+                            >
+                              Удалить
+                            </button>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </Td>
                   </tr>
                 );
@@ -216,7 +236,7 @@ export function StaffDirectory({
         error={loginError ? "Такой логин уже занят." : undefined}
         labelledBy="staff-editor-title"
         onClose={closeEditor}
-        open={editor !== null}
+        open={canManage && editor !== null}
         subtitle={
           editing ? `${editing.name} · ${editing.login}` : "Учётная запись для входа в диспетчерскую"
         }

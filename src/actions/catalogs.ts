@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import fs from "fs/promises";
 import { prisma } from "@/lib/db";
 import { hashPassword, requireStaff } from "@/lib/auth";
-import { ROLES, STAFF_ROLES, type Role } from "@/lib/constants";
+import { canManageStaffUsers, ROLES, STAFF_ROLES, type Role } from "@/lib/constants";
 import { sendSms } from "@/lib/sms";
 import {
   FACSIMILE_MAX_BYTES,
@@ -425,6 +425,9 @@ export async function sendTestSms(formData: FormData) {
 
 export async function saveStaffUser(formData: FormData) {
   const session = await requireStaff();
+  if (!canManageStaffUsers(session.role)) {
+    redirect("/settings/users?error=forbidden");
+  }
   const id = String(formData.get("id") || "");
   const name = String(formData.get("name") || "").trim();
   const login = String(formData.get("login") || "").trim().toLowerCase();
@@ -440,6 +443,13 @@ export async function saveStaffUser(formData: FormData) {
     if (id) {
       const user = await prisma.user.findUnique({ where: { id } });
       if (!user || user.role === ROLES.DRIVER) return;
+      const nextActive = id === session.id ? true : isActive;
+      if (user.role === ROLES.SYSADMIN && (role !== ROLES.SYSADMIN || !nextActive)) {
+        const others = await prisma.user.count({
+          where: { role: ROLES.SYSADMIN, isActive: true, id: { not: id } },
+        });
+        if (others === 0) redirect("/settings/users?error=lastAdmin");
+      }
       await prisma.user.update({
         where: { id },
         data: {
@@ -447,7 +457,7 @@ export async function saveStaffUser(formData: FormData) {
           login,
           phone,
           role,
-          isActive: id === session.id ? true : isActive,
+          isActive: nextActive,
           ...(password ? { passwordHash: await hashPassword(password) } : {}),
         },
       });
@@ -474,6 +484,9 @@ export async function saveStaffUser(formData: FormData) {
 
 export async function deleteStaffUser(id: string) {
   const session = await requireStaff();
+  if (!canManageStaffUsers(session.role)) {
+    redirect("/settings/users?error=forbidden");
+  }
   if (id === session.id) {
     redirect("/settings/users?error=self");
   }
@@ -481,6 +494,12 @@ export async function deleteStaffUser(id: string) {
   const user = await prisma.user.findUnique({ where: { id } });
   if (!user || user.role === ROLES.DRIVER) {
     redirect("/settings/users");
+  }
+  if (user.role === ROLES.SYSADMIN) {
+    const others = await prisma.user.count({
+      where: { role: ROLES.SYSADMIN, id: { not: id } },
+    });
+    if (others === 0) redirect("/settings/users?error=lastAdmin");
   }
 
   const remaining = await prisma.user.count({

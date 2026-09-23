@@ -8,6 +8,7 @@ import { ProfileMenu } from "@/components/profile-menu";
 import { OverdueInvoicesButton, type OverdueInvoice } from "@/components/overdue-invoices-button";
 import type { SessionUser } from "@/lib/auth";
 import { canViewAuditLog } from "@/lib/auth";
+import { canManageStaffUsers } from "@/lib/constants";
 import type { StaffNotice } from "@/lib/notification-ui";
 
 export function AppShell({
@@ -28,6 +29,7 @@ export function AppShell({
   });
 
   const showAuditLog = canViewAuditLog(user);
+  const canManageUsers = canManageStaffUsers(user.role);
 
   return (
     <div className="staff-app relative min-h-screen w-full max-w-full overflow-x-clip">
@@ -36,7 +38,7 @@ export function AppShell({
         <div className="px-4 py-5">
           <BrandLogo />
         </div>
-        <SidebarNav showAuditLog={showAuditLog} />
+        <SidebarNav canManageUsers={canManageUsers} showAuditLog={showAuditLog} />
       </aside>
       <div className="min-w-0 lg:pl-[272px]" data-staff-content>
         <header className="glass-panel sticky top-0 z-20 border-b border-white/80 px-4 py-3.5 shadow-[0_8px_30px_rgba(31,41,51,0.04)] sm:px-6" data-staff-header>
@@ -52,6 +54,7 @@ export function AppShell({
               <OverdueInvoicesButton overdue={overdue} />
               <NotificationsBell items={unread} />
               <ProfileMenu
+                canManageUsers={canManageUsers}
                 user={{ name: user.name, login: user.login, role: user.role, phone: user.phone }}
               />
             </div>
@@ -60,7 +63,7 @@ export function AppShell({
         <main className="relative z-[1] min-w-0 overflow-x-clip p-4 pb-24 sm:p-6 sm:pb-24 lg:p-9 lg:pb-9" data-staff-main>
           <PageTransition>{children}</PageTransition>
         </main>
-        <StaffMobileNav showAuditLog={showAuditLog} />
+        <StaffMobileNav canManageUsers={canManageUsers} showAuditLog={showAuditLog} />
       </div>
     </div>
   );

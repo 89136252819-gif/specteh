@@ -48,11 +48,16 @@ function isActive(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function StaffMobileNav({ showAuditLog = false }: { showAuditLog?: boolean }) {
+export function StaffMobileNav({
+  showAuditLog = false,
+  canManageUsers = false,
+}: {
+  showAuditLog?: boolean;
+  canManageUsers?: boolean;
+}) {
   const pathname = usePathname();
-  const more = showAuditLog
-    ? [...MORE, { href: "/settings/audit", label: "Журнал действий", icon: ScrollText }]
-    : MORE;
+  const moreBase = canManageUsers ? MORE : MORE.filter((item) => item.href !== "/settings/users");
+  const more = showAuditLog ? [...moreBase, { href: "/settings/audit", label: "Журнал действий", icon: ScrollText }] : moreBase;
   const [moreOpen, setMoreOpen] = useState(false);
   const moreActive = more.some((item) => isActive(pathname, item.href));
 

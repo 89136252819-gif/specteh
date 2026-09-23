@@ -24,7 +24,7 @@ export function ForceOrderStatusForm({ orderId, status }: { orderId: string; sta
         <Textarea name="note" placeholder="Необязательно — почему меняете вручную" />
       </Field>
       <p className="text-xs text-slate-500">
-        Доступно только главному менеджеру. Статус ставится сразу, без обычных шагов водителя.
+        Доступно главному менеджеру и системному администратору. Статус ставится сразу, без обычных шагов водителя.
       </p>
       <SubmitButton variant="secondary">Установить статус</SubmitButton>
     </form>
