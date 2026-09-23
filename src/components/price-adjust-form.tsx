@@ -212,7 +212,7 @@ export function PriceAdjustForm({
         </div>
         {vatRate > 0 ? (
           <div className="flex justify-between py-0.5">
-            <span>НДС {vatRate}%</span>
+            <span>Сумма НДС {vatRate}% -</span>
             <span>{money(calc.vatAmount)}</span>
           </div>
         ) : (

@@ -8,7 +8,7 @@ import { ORDER_STATUSES } from "@/lib/constants";
 import { revalidateDispatch } from "@/lib/revalidate-ops";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
-import { parsePhotos } from "@/lib/utils";
+import { formatSiteLocation, parsePhotos } from "@/lib/utils";
 
 function photoExt(file: File) {
   const fromName = path.extname(file.name).replace(".", "").toLowerCase();
@@ -120,7 +120,7 @@ export async function driverAdvance(orderId: string) {
     lines: [
       { value: order.number, strong: true },
       { icon: "👤", value: session.name },
-      { icon: "📍", value: order.address },
+      { icon: "📍", value: formatSiteLocation(order.siteName, order.address) },
     ],
   });
 

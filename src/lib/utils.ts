@@ -99,6 +99,25 @@ export function parseOmskDatetimeLocal(value: string): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+export function toDateInputInTz(value: Date | string, timeZone = BUSINESS_TZ) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(value));
+  const get = (type: string) => parts.find((part) => part.type === type)?.value || "01";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
+/** Меняет календарную дату метки, сохраняя её омское время суток. */
+export function withOmskDate(original: Date | string, dateInput: string): Date | null {
+  const day = dateInput.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
+  const time = toDatetimeLocalInTz(original).slice(11);
+  return parseOmskDatetimeLocal(`${day}T${time}`);
+}
+
 export function omskTomorrowMorning() {
   const iso = new Intl.DateTimeFormat("en-CA", {
     timeZone: BUSINESS_TZ,
@@ -141,6 +160,14 @@ export function phoneHref(phone: string) {
 
 export function mapsHref(address: string) {
   return `https://yandex.ru/maps/?text=${encodeURIComponent(address)}`;
+}
+
+/** Объект и адрес подачи одной строкой для списков, PDF и уведомлений. */
+export function formatSiteLocation(siteName: string | null | undefined, address: string) {
+  const name = (siteName || "").trim();
+  const place = (address || "").trim();
+  if (name && place && name.toLowerCase() !== place.toLowerCase()) return `${name} · ${place}`;
+  return name || place;
 }
 
 /** Ссылка для людей (MAX, письма). IP из старого APP_URL подменяем на домен. */

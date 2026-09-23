@@ -18,6 +18,7 @@ export async function orderIdsMatchingSearch(term: string): Promise<string[] | n
     LEFT JOIN "Act" a ON a.orderId = o.id
     WHERE lower(o.number) LIKE ${pattern}
        OR lower(o.address) LIKE ${pattern}
+       OR lower(COALESCE(o.siteName, '')) LIKE ${pattern}
        OR lower(COALESCE(o.siteContact, '')) LIKE ${pattern}
        OR lower(COALESCE(o.sitePhone, '')) LIKE ${pattern}
        OR lower(COALESCE(o.comment, '')) LIKE ${pattern}

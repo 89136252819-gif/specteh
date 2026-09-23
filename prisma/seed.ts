@@ -139,7 +139,7 @@ async function main() {
       passwordHash: await hash("admin123"),
       name: "Клочков Максим Игоревич",
       phone: "+79010101012",
-      role: "ADMIN",
+      role: "SYSADMIN",
     },
   });
 

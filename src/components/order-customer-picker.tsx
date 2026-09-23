@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { FilterChip } from "@/components/directory-chrome";
 import { InnFillField } from "@/components/inn-fill-field";
@@ -8,11 +8,26 @@ import { Field, Input, Select } from "@/components/ui/fields";
 import { cn, money } from "@/lib/utils";
 
 type CustomerOption = { id: string; name: string; phone: string; debt?: number };
+type PickerMode = "existing" | "new";
 
-export function OrderCustomerPicker({ customers }: { customers: CustomerOption[] }) {
-  const [mode, setMode] = useState<"existing" | "new">("existing");
+export function OrderCustomerPicker({
+  customers,
+  defaultCustomerId = "",
+  selectedId: selectedIdProp,
+  onSelectedIdChange,
+  mode: modeProp,
+  onModeChange,
+}: {
+  customers: CustomerOption[];
+  defaultCustomerId?: string;
+  selectedId?: string;
+  onSelectedIdChange?: (id: string) => void;
+  mode?: PickerMode;
+  onModeChange?: (mode: PickerMode) => void;
+}) {
+  const [uncontrolledMode, setUncontrolledMode] = useState<PickerMode>("existing");
   const [query, setQuery] = useState("");
-  const [selectedId, setSelectedId] = useState("");
+  const [uncontrolledId, setUncontrolledId] = useState(defaultCustomerId);
   const [type, setType] = useState("INDIVIDUAL");
   const [name, setName] = useState("");
   const [contact, setContact] = useState("");
@@ -20,20 +35,38 @@ export function OrderCustomerPicker({ customers }: { customers: CustomerOption[]
   const [kpp, setKpp] = useState("");
   const [address, setAddress] = useState("");
 
+  const mode = modeProp ?? uncontrolledMode;
+  const setMode = onModeChange ?? setUncontrolledMode;
+  const selectedId = selectedIdProp ?? uncontrolledId;
+  const setSelectedId = onSelectedIdChange ?? setUncontrolledId;
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return customers.slice(0, 40);
-    return customers
-      .filter((customer) => `${customer.name} ${customer.phone}`.toLowerCase().includes(q))
-      .slice(0, 40);
-  }, [customers, query]);
+    const matches = q
+      ? customers.filter((customer) => `${customer.name} ${customer.phone}`.toLowerCase().includes(q))
+      : customers.slice(0, 40);
+    const selected = customers.find((customer) => customer.id === selectedId);
+    if (selected && !matches.some((customer) => customer.id === selected.id)) {
+      return [selected, ...matches].slice(0, 40);
+    }
+    return matches.slice(0, 40);
+  }, [customers, query, selectedId]);
+
+  useEffect(() => {
+    if (mode !== "existing") return;
+    const q = query.trim().toLowerCase();
+    if (!q) return;
+    const matches = customers.filter((customer) => `${customer.name} ${customer.phone}`.toLowerCase().includes(q));
+    if (matches.some((customer) => customer.id === selectedId)) return;
+    if (matches.length === 1) setSelectedId(matches[0].id);
+  }, [customers, mode, query, selectedId, setSelectedId]);
 
   const selected = customers.find((customer) => customer.id === selectedId);
 
   return (
     <div className="space-y-3 sm:col-span-2">
-      <input name="customerMode" type="hidden" value={mode} />
-      <input name="customerId" type="hidden" value={mode === "existing" ? selectedId : ""} />
+      <input name="customerMode" readOnly type="hidden" value={mode} />
+      <input name="customerId" readOnly type="hidden" value={mode === "existing" ? selectedId : ""} />
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm font-semibold text-stone-700">Заказчик</span>
         <FilterChip active={mode === "existing"} onClick={() => setMode("existing")}>
@@ -64,7 +97,7 @@ export function OrderCustomerPicker({ customers }: { customers: CustomerOption[]
               ) : null}
             </div>
           ) : (
-            <p className="text-xs text-amber-700">Выберите заказчика из списка ниже</p>
+            <p className="text-xs text-amber-700">Нажмите на заказчика в списке ниже</p>
           )}
           <ul className="max-h-56 overflow-auto rounded-2xl border border-slate-200 bg-white">
             {filtered.length === 0 ? (
@@ -110,8 +143,8 @@ export function OrderCustomerPicker({ customers }: { customers: CustomerOption[]
             }}
             value={inn}
           />
-          <input name="newCustomerKpp" type="hidden" value={kpp} />
-          <input name="newCustomerAddress" type="hidden" value={address} />
+          <input name="newCustomerKpp" readOnly type="hidden" value={kpp} />
+          <input name="newCustomerAddress" readOnly type="hidden" value={address} />
           <Field label="Тип">
             <Select name="newCustomerType" onChange={(e) => setType(e.target.value)} value={type}>
               <option value="COMPANY">Юрлицо / ИП</option>

@@ -1,4 +1,5 @@
 export const ROLES = {
+  SYSADMIN: "SYSADMIN",
   ADMIN: "ADMIN",
   MANAGER: "MANAGER",
   ACCOUNTANT: "ACCOUNTANT",
@@ -8,13 +9,22 @@ export const ROLES = {
 export type Role = (typeof ROLES)[keyof typeof ROLES];
 
 export const ROLE_LABELS: Record<Role, string> = {
+  SYSADMIN: "Системный администратор",
   ADMIN: "Главный менеджер",
   MANAGER: "Менеджер",
   ACCOUNTANT: "Бухгалтер",
   DRIVER: "Водитель",
 };
 
-export const STAFF_ROLES: Role[] = ["ADMIN", "MANAGER", "ACCOUNTANT"];
+export const STAFF_ROLES: Role[] = ["SYSADMIN", "ADMIN", "MANAGER", "ACCOUNTANT"];
+
+export function canManageStaffUsers(role: string) {
+  return role === ROLES.SYSADMIN;
+}
+
+export function canForceOrderStatus(role: string) {
+  return role === ROLES.ADMIN || role === ROLES.SYSADMIN;
+}
 
 /** Единственный пользователь с доступом к полному журналу действий. */
 export const AUDIT_VIEWER_NAME = "Клочков Максим Игоревич";
@@ -26,6 +36,7 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   VERIFY_REPORT: "Проверка отчёта",
   GENERATE_DOCS: "Документы",
   EDIT_DOCS: "Правка документов",
+  CHANGE_CUSTOMER: "Смена заказчика",
   ADVANCE: "Статус с канбана",
   PAYMENT: "Оплата",
   REPEAT: "Повтор",

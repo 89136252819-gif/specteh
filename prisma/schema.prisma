@@ -145,6 +145,7 @@ model Order {
   equipmentId     String?
   driverId        String?
   address         String
+  siteName        String?
   siteContact     String?
   sitePhone       String?
   scheduledAt     DateTime
@@ -308,6 +309,7 @@ model OrderTemplate {
   vatRate         Float?
   equipmentTypeId String
   address         String
+  siteName        String?
   siteContact     String?
   sitePhone       String?
   comment         String?

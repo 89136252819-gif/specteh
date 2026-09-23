@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import { moneyPlain, formatDate } from "./utils";
 import { rublesInWords } from "./money-words";
+import { vatOnTopLabel } from "./invoice-purpose";
 
 const fontDir = path.join(process.cwd(), "src", "fonts");
 const logoPath = path.join(process.cwd(), "public", "logo.png");
@@ -274,7 +275,7 @@ function Lines({ doc }: { doc: PdfDoc }) {
         </View>
         {doc.vatRate > 0 ? (
           <View style={s.totalLine}>
-            <Text>В том числе НДС {doc.vatRate}%</Text>
+            <Text>{vatOnTopLabel(doc.vatRate)}</Text>
             <Text>{moneyPlain(doc.vatAmount)}</Text>
           </View>
         ) : (

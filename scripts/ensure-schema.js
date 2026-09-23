@@ -15,6 +15,8 @@ async function main() {
   await addColumn("User", "maxUserId");
   await addColumn("Customer", "maxUserId");
   await addColumn("Order", "maxBindToken");
+  await addColumn("Order", "siteName");
+  await addColumn("OrderTemplate", "siteName");
   await addColumn("Invoice", "dueAt", "DATETIME");
   await addColumn("Invoice", "paymentPurpose");
   await addColumn("Organization", "signatureFile");
@@ -51,6 +53,7 @@ async function main() {
       "vatRate" REAL,
       "equipmentTypeId" TEXT NOT NULL,
       "address" TEXT NOT NULL,
+      "siteName" TEXT,
       "siteContact" TEXT,
       "sitePhone" TEXT,
       "comment" TEXT,

@@ -8,7 +8,7 @@ import { CtaLink } from "@/components/ui/cta";
 import { Badge, StatusBadge } from "@/components/ui/badge";
 import { EQUIPMENT_STATUS_LABELS, ORDER_STATUSES } from "@/lib/constants";
 import { EndDriverShiftButton } from "@/components/end-driver-shift-button";
-import { formatDriverWhen, formatHoursMinutes, formatTime, phoneHref, phonePretty, shiftDurationMs } from "@/lib/utils";
+import { formatDriverWhen, formatHoursMinutes, formatSiteLocation, formatTime, phoneHref, phonePretty, shiftDurationMs } from "@/lib/utils";
 
 const OPS = [
   ORDER_STATUSES.NEW,
@@ -375,7 +375,7 @@ export default async function DispatchPage({
                       <StatusBadge status={order.status} />
                     </div>
                     <div className="truncate text-sm text-slate-700">{order.number} · {order.customer.name}</div>
-                    <div className="truncate text-xs text-slate-500">{order.address}</div>
+                    <div className="truncate text-xs text-slate-500">{formatSiteLocation(order.siteName, order.address)}</div>
                     <div className="text-xs text-slate-400">
                       {order.driver?.user.name || "без водителя"}
                       {order.equipment ? ` · ${order.equipment.plateNumber}` : ""}

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { formatSiteLocation } from "@/lib/utils";
 import { ActPdf } from "@/lib/pdf-docs";
 import { buildPdfDoc, linesFromJson } from "@/lib/pdf-from-record";
 import { renderToBuffer } from "@react-pdf/renderer";
@@ -20,7 +21,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ token: string 
     organization: act.organization,
     customer: act.order.customer,
     basis: `Заявка ${act.order.number}`,
-    workAddress: act.order.address,
+    workAddress: formatSiteLocation(act.order.siteName, act.order.address),
     lines: linesFromJson(act.linesJson),
     vatAmount: act.vatAmount,
     amount: act.amount,

@@ -4,13 +4,14 @@ import { StatusBadge } from "@/components/ui/badge";
 import { DispatchAssignForm, type DispatchDriverOption, type DispatchUnitOption } from "@/components/dispatch-assign-form";
 import { DispatchQuickActions } from "@/components/dispatch-quick-actions";
 import { PAYMENT_METHOD_LABELS, type PaymentMethod } from "@/lib/constants";
-import { formatDriverWhen, mapsHref, money, phoneHref, phonePretty } from "@/lib/utils";
+import { formatDriverWhen, formatSiteLocation, mapsHref, money, phoneHref, phonePretty } from "@/lib/utils";
 
 export type DispatchOrder = {
   id: string;
   number: string;
   status: string;
   address: string;
+  siteName?: string | null;
   comment: string | null;
   scheduledAt: Date;
   paymentMethod: string;
@@ -71,7 +72,7 @@ export function DispatchOrderCard({
         target="_blank"
       >
         <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-menu-hover" />
-        <span className="min-w-0 break-words">{order.address}</span>
+        <span className="min-w-0 break-words">{formatSiteLocation(order.siteName, order.address)}</span>
       </a>
       <div className="mt-1.5 text-xs text-slate-500">
         {order.equipment ? `${order.equipment.plateNumber} · ${order.equipment.name}` : order.equipmentType.name}

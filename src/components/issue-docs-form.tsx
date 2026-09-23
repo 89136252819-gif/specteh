@@ -15,6 +15,8 @@ function uid() {
   return Math.random().toString(36).slice(2, 9);
 }
 
+const DATE_INPUT_RE = /^\d{4}-\d{2}-\d{2}$/;
+
 type LineRow = DocLine & { key: string };
 
 export function IssueDocsForm({
@@ -24,12 +26,16 @@ export function IssueDocsForm({
   orgs,
   initialLines,
   mode = "create",
+  layout = "inline",
   customerId: initialCustomerId,
   customers = [],
   paymentPurpose: initialPaymentPurpose = "",
   initialTotal,
   initialVatAmount,
+  invoiceDate: initialInvoiceDate = "",
+  actDate: initialActDate = "",
   onSaved,
+  onCancel,
 }: {
   orderId: string;
   paymentMethod: string;
@@ -37,18 +43,24 @@ export function IssueDocsForm({
   orgs: PaymentOrgMap;
   initialLines?: DocLine[];
   mode?: "create" | "edit";
+  layout?: "inline" | "modal";
   customerId?: string;
   customers?: { id: string; name: string; phone: string }[];
   paymentPurpose?: string;
   initialTotal?: number;
   initialVatAmount?: number;
+  invoiceDate?: string;
+  actDate?: string;
   onSaved?: () => void;
+  onCancel?: () => void;
 }) {
   const [paymentMethod, setPaymentMethod] = useState(initialPayment);
   const [vatRate, setVatRate] = useState(initialVat);
   const [customerId, setCustomerId] = useState(initialCustomerId || "");
   const [customerQuery, setCustomerQuery] = useState("");
   const [paymentPurpose, setPaymentPurpose] = useState(initialPaymentPurpose);
+  const [invoiceDate, setInvoiceDate] = useState(initialInvoiceDate);
+  const [actDate, setActDate] = useState(initialActDate);
   const [lines, setLines] = useState<LineRow[]>(() =>
     (initialLines?.length
       ? initialLines
@@ -131,6 +143,10 @@ export function IssueDocsForm({
     start(async () => {
       setError("");
       setOk(false);
+      if (editing && (!DATE_INPUT_RE.test(invoiceDate) || !DATE_INPUT_RE.test(actDate))) {
+        setError("Укажите дату счёта и дату акта");
+        return;
+      }
       if (manual) {
         const total = Number(manualTotal);
         if (!Number.isFinite(total) || total <= 0) {
@@ -160,31 +176,36 @@ export function IssueDocsForm({
         formData.set("manualTotal", String(roundMoney(Number(manualTotal))));
         formData.set("manualVatAmount", String(vatRate > 0 ? roundMoney(Number(manualVatAmount)) : 0));
       }
-      if (editing && customerId) formData.set("customerId", customerId);
+      if (customerId) formData.set("customerId", customerId);
+      if (editing) {
+        formData.set("invoiceIssuedAt", invoiceDate);
+        formData.set("actIssuedAt", actDate);
+      }
       const result = editing ? await updateOrderDocuments(formData) : await issueManualDocuments(formData);
       if (result && "error" in result && result.error) {
         setError(result.error);
         return;
       }
-      if (editing) {
-        setOk(true);
-        router.refresh();
-        onSaved?.();
-      }
+      setOk(true);
+      router.refresh();
+      onSaved?.();
     });
   }
 
-  return (
-    <div className="space-y-4">
+  const inModal = layout === "modal";
+  const submitLabel = pending ? "Сохраняем…" : editing ? "Сохранить изменения" : "Выставить счёт и акт";
+
+  const fields = (
+    <>
       <p className="text-sm text-slate-500">
         {editing
-          ? "Можно поправить заказчика, позиции, НДС и способ оплаты. Счёт и акт обновятся вместе."
+          ? "Можно поправить заказчика, даты, позиции, НДС и способ оплаты. Счёт и акт обновятся вместе."
           : "Счёт и акт создаются сразу и привязываются к этой заявке. Можно заполнить строки вручную — отчёт водителя не обязателен."}
       </p>
 
-      {editing && customers.length > 0 ? (
+      {customers.length > 0 ? (
         <div className="space-y-2">
-          <Field label="Заказчик в счёте и акте">
+          <Field label="Заказчик">
             <Input
               onChange={(e) => setCustomerQuery(e.target.value)}
               placeholder="Поиск по имени или телефону"
@@ -215,6 +236,20 @@ export function IssueDocsForm({
               </li>
             ))}
           </ul>
+        </div>
+      ) : null}
+
+      {editing ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Дата счёта">
+            <Input onChange={(e) => setInvoiceDate(e.target.value)} type="date" value={invoiceDate} />
+          </Field>
+          <Field label="Дата акта">
+            <Input onChange={(e) => setActDate(e.target.value)} type="date" value={actDate} />
+          </Field>
+          <p className="text-xs text-slate-500 sm:col-span-2">
+            Дата уйдёт в PDF, выгрузку для бухгалтерии и отчёты. Срок оплаты сдвинется вместе с датой счёта.
+          </p>
         </div>
       ) : null}
 
@@ -368,7 +403,7 @@ export function IssueDocsForm({
             </div>
             {vatRate > 0 ? (
               <div className="flex justify-between py-0.5">
-                <span>НДС {vatRate}%</span>
+                <span>Сумма НДС {vatRate}% -</span>
                 <span>{money(calc.vatAmount)}</span>
               </div>
             ) : null}
@@ -380,12 +415,43 @@ export function IssueDocsForm({
         )}
       </div>
 
-      {error ? <p className="text-sm font-semibold text-rose-700">{error}</p> : null}
-      {ok ? <p className="text-sm font-semibold text-emerald-700">Сохранено — PDF обновится при следующем открытии</p> : null}
+      {inModal ? null : (
+        <>
+          {error ? <p className="text-sm font-semibold text-rose-700">{error}</p> : null}
+          {ok ? (
+            <p className="text-sm font-semibold text-emerald-700">Сохранено — PDF обновится при следующем открытии</p>
+          ) : null}
+          <Button disabled={pending || !orgName} onClick={submit} type="button">
+            {submitLabel}
+          </Button>
+        </>
+      )}
+    </>
+  );
 
-      <Button disabled={pending || !orgName} onClick={submit} type="button">
-        {pending ? "Сохраняем…" : editing ? "Сохранить изменения" : "Выставить счёт и акт"}
-      </Button>
+  if (!inModal) {
+    return <div className="space-y-4">{fields}</div>;
+  }
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">{fields}</div>
+      <div className="flex shrink-0 flex-col gap-2 border-t border-slate-100 bg-white px-5 py-4">
+        {error ? <p className="text-sm font-semibold text-rose-700">{error}</p> : null}
+        {ok ? (
+          <p className="text-sm font-semibold text-emerald-700">Сохранено — PDF обновится при следующем открытии</p>
+        ) : null}
+        <div className="flex flex-wrap gap-2">
+          <Button disabled={pending || !orgName} onClick={submit} type="button">
+            {submitLabel}
+          </Button>
+          {onCancel ? (
+            <Button disabled={pending} onClick={onCancel} type="button" variant="secondary">
+              Отмена
+            </Button>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }

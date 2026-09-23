@@ -16,13 +16,14 @@ import {
   ORDERS_PAGE_SIZE,
   parseOrderListFilter,
 } from "@/lib/order-list";
-import { formatDateTime } from "@/lib/utils";
+import { formatDateTime, formatSiteLocation } from "@/lib/utils";
 
 export type OrderRow = {
   id: string;
   number: string;
   scheduledAt: string;
   address: string;
+  siteName?: string | null;
   status: string;
   paymentMethod: string;
   customerName: string;
@@ -39,7 +40,7 @@ export type OrderListStats = {
 
 function matches(row: OrderRow, query: string) {
   const hay =
-    `${row.number} ${row.customerName} ${row.address} ${row.driverName || ""} ${row.typeName} ${row.equipmentLabel || ""}`.toLowerCase();
+    `${row.number} ${row.customerName} ${row.siteName || ""} ${row.address} ${row.driverName || ""} ${row.typeName} ${row.equipmentLabel || ""}`.toLowerCase();
   return hay.includes(query);
 }
 
@@ -197,7 +198,7 @@ export function OrdersDirectory({
                       <Td className="whitespace-nowrap text-slate-600">{formatDateTime(row.scheduledAt)}</Td>
                       <Td>
                         <div className="font-medium text-navy">{row.customerName}</div>
-                        <div className="max-w-xs truncate text-xs text-slate-500">{row.address}</div>
+                        <div className="max-w-xs truncate text-xs text-slate-500">{formatSiteLocation(row.siteName, row.address)}</div>
                       </Td>
                       <Td>
                         <EquipmentTypeLabel className="text-sm" name={row.typeName} size="sm" />
@@ -262,7 +263,7 @@ function OrderCard({ row }: { row: OrderRow }) {
         <StatusBadge status={row.status as OrderStatus} />
       </div>
       <div className="mt-2 font-semibold text-slate-800">{row.customerName}</div>
-      <div className="mt-1 text-sm text-slate-600">{row.address}</div>
+      <div className="mt-1 text-sm text-slate-600">{formatSiteLocation(row.siteName, row.address)}</div>
       <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
         <span>{row.typeName}</span>
         {row.driverName ? <span>{row.driverName}</span> : <span className="text-amber-600">без водителя</span>}

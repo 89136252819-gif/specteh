@@ -149,8 +149,11 @@ export function PublicOrderForm({
         <Field className="sm:col-span-2" label="Компания">
           <Input name="company" placeholder="Необязательно" />
         </Field>
-        <Field className="sm:col-span-2" label="Адрес объекта">
-          <AddressSuggest name="address" placeholder="Омск, улица, ориентир" required />
+        <Field className="sm:col-span-2" label="Объект">
+          <Input name="siteName" placeholder="ЖК, стройка, склад — необязательно" />
+        </Field>
+        <Field className="sm:col-span-2" label="Место подачи">
+          <AddressSuggest name="address" placeholder="Омск, улица, ориентир, въезд" required />
         </Field>
         <Field className="sm:col-span-2" label="Дата и время подачи">
           <Input defaultValue={defaultTime} name="scheduledAt" required type="datetime-local" />

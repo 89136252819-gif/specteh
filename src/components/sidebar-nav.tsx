@@ -81,11 +81,12 @@ function NavItem({
   );
 }
 
-export function SidebarNav({ showAuditLog = false }: { showAuditLog?: boolean }) {
+export function SidebarNav({ showAuditLog = false, canManageUsers = false }: { showAuditLog?: boolean; canManageUsers?: boolean }) {
   const pathname = usePathname();
+  const baseSettings = canManageUsers ? SETTINGS : SETTINGS.filter((item) => item.href !== "/settings/users");
   const settings = showAuditLog
-    ? [...SETTINGS, { href: "/settings/audit", label: "Журнал действий", icon: ScrollText }]
-    : SETTINGS;
+    ? [...baseSettings, { href: "/settings/audit", label: "Журнал действий", icon: ScrollText }]
+    : baseSettings;
   const onSettings = settings.some((item) => isActive(pathname, item.href));
   const [open, setOpen] = useState(onSettings);
 

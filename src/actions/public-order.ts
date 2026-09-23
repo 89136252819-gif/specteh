@@ -8,7 +8,7 @@ import { CUSTOMER_TYPES, ORDER_STATUSES, PAYMENT_METHOD_LABELS, PAYMENT_METHODS,
 import { nextOrderNumber } from "@/lib/order-number";
 import { isHiddenFromPublicCatalog } from "@/lib/public-catalog";
 import { sendSms } from "@/lib/sms";
-import { formatDriverWhen, formatPhoneMask, mapsHref, parseOmskDatetimeLocal, randomToken } from "@/lib/utils";
+import { formatDriverWhen, formatPhoneMask, formatSiteLocation, mapsHref, parseOmskDatetimeLocal, randomToken } from "@/lib/utils";
 
 export type PublicOrderState =
   | { error?: string; ok?: boolean; number?: string; phone?: string; bindToken?: string }
@@ -38,6 +38,7 @@ export async function submitPublicOrder(
   const company = String(formData.get("company") || "").trim();
   const equipmentTypeId = String(formData.get("equipmentTypeId") || "");
   const address = String(formData.get("address") || "").trim();
+  const siteName = String(formData.get("siteName") || "").trim() || null;
   const scheduledAt = String(formData.get("scheduledAt") || "");
   const comment = String(formData.get("comment") || "").trim();
   const paymentMethod = String(formData.get("paymentMethod") || PAYMENT_METHODS.CASHLESS_VAT) as PaymentMethod;
@@ -48,7 +49,7 @@ export async function submitPublicOrder(
     return { error: "Укажите имя и телефон" };
   }
   if (!equipmentTypeId) return { error: "Выберите тип техники" };
-  if (!address) return { error: "Укажите адрес объекта" };
+  if (!address) return { error: "Укажите место подачи" };
   if (!scheduledAt) return { error: "Укажите дату и время" };
 
   const when = parseOmskDatetimeLocal(scheduledAt);
@@ -123,6 +124,7 @@ export async function submitPublicOrder(
       vatRate: org.vatRate,
       equipmentTypeId: type.id,
       address,
+      siteName,
       siteContact: name,
       sitePhone: phone,
       scheduledAt: when,
@@ -142,7 +144,7 @@ export async function submitPublicOrder(
   lines.push(
     { icon: "📞", value: formatPhoneMask(phone) },
     { icon: "🚚", value: type.name },
-    { icon: "📍", value: address, href: mapsHref(address) },
+    { icon: "📍", value: formatSiteLocation(siteName, address), href: mapsHref(address) },
     { icon: "🕐", value: formatDriverWhen(when) },
     { icon: "💳", value: PAYMENT_METHOD_LABELS[paymentMethod] },
   );
@@ -154,7 +156,7 @@ export async function submitPublicOrder(
   await notifyStaff({
     type: "PUBLIC_ORDER",
     title: maxLinked ? "Заявка с сайта" : "Заявка с сайта · без MAX",
-    body: `${name}, ${phone}: ${type.name} · ${address}${maxLinked ? "" : " · MAX не привязан"}`,
+    body: `${name}, ${phone}: ${type.name} · ${formatSiteLocation(siteName, address)}${maxLinked ? "" : " · MAX не привязан"}`,
     orderId: order.id,
     lines,
   });

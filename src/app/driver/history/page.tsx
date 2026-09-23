@@ -41,6 +41,7 @@ export default async function DriverHistoryPage() {
               <DriverOrderCard
                 key={o.id}
                 address={o.address}
+                siteName={o.siteName}
                 customerName={o.customer.name}
                 equipmentLabel={o.equipment ? `${o.equipment.name} · ${o.equipment.plateNumber}` : o.equipmentType.name}
                 id={o.id}
