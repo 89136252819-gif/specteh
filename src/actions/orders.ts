@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireRoles, requireStaff } from "@/lib/auth";
 import { notifyStaff } from "@/lib/notifications";
@@ -514,6 +515,68 @@ export async function staffAdvanceOrderStatus(orderId: string) {
   return { ok: true as const };
 }
 
+type IssuedDocs = {
+  invoice: { id: string; number: string; payments: { amount: number }[] } | null;
+  act: { id: string; number: string } | null;
+};
+
+function paymentTotal(order: IssuedDocs) {
+  return order.invoice?.payments.reduce((sum, payment) => sum + payment.amount, 0) ?? 0;
+}
+
+/** Счёт и акт снимаются только после явного «всё равно продолжить». Оплаты — отдельным подтверждением. */
+function docRemovalGate(order: IssuedDocs, formData: FormData) {
+  const hasDocs = Boolean(order.invoice || order.act);
+  const paymentCount = order.invoice?.payments.length ?? 0;
+  const confirmDocs = String(formData.get("confirmRemoveDocs") || "") === "1";
+  const confirmPayments = String(formData.get("confirmRemovePayments") || "") === "1";
+  if (hasDocs && !confirmDocs) {
+    return {
+      needsDocsConfirm: true as const,
+      invoiceNumber: order.invoice?.number ?? null,
+      actNumber: order.act?.number ?? null,
+    };
+  }
+  if (paymentCount > 0 && !confirmPayments) {
+    return {
+      needsPaymentConfirm: true as const,
+      invoiceNumber: order.invoice?.number ?? null,
+      paid: paymentTotal(order),
+      paymentCount,
+    };
+  }
+  return null;
+}
+
+function removedDocsDetail(order: IssuedDocs) {
+  const parts: string[] = [];
+  if (order.invoice && order.act) parts.push(`сняты счёт ${order.invoice.number} и акт ${order.act.number}`);
+  else if (order.invoice) parts.push(`снят счёт ${order.invoice.number}`);
+  else if (order.act) parts.push(`снят акт ${order.act.number}`);
+  const count = order.invoice?.payments.length ?? 0;
+  if (count > 0) parts.push(`удалены оплаты ${paymentTotal(order)} ₽ (${count})`);
+  return parts.join(" · ");
+}
+
+async function deleteIssuedDocuments(tx: Prisma.TransactionClient, order: IssuedDocs) {
+  if (order.invoice) await tx.invoice.delete({ where: { id: order.invoice.id } });
+  if (order.act) await tx.act.delete({ where: { id: order.act.id } });
+}
+
+function revalidateAfterCancel(orderId: string, removedDocs: boolean) {
+  revalidatePath("/orders");
+  revalidatePath(`/orders/${orderId}`);
+  revalidatePath("/");
+  revalidateDispatch();
+  revalidatePath("/driver");
+  if (!removedDocs) return;
+  revalidatePath("/documents");
+  revalidatePath("/finance");
+  revalidatePath("/customers");
+  revalidatePath("/orders/new");
+  revalidatePath("/reports");
+}
+
 export async function cancelOrder(formData: FormData) {
   const user = await requireStaff();
   const orderId = String(formData.get("orderId") || "");
@@ -523,18 +586,27 @@ export async function cancelOrder(formData: FormData) {
     include: {
       customer: true,
       driver: { include: { user: true } },
+      invoice: { include: { payments: true } },
+      act: true,
     },
   });
   if (!order) return;
   if (["PAID", "CANCELLED"].includes(order.status)) return;
 
-  await prisma.order.update({
-    where: { id: orderId },
-    data: { status: ORDER_STATUSES.CANCELLED, cancelReason: reason || "Отменена менеджером" },
+  const gate = docRemovalGate(order, formData);
+  if (gate) return gate;
+
+  const docsDetail = removedDocsDetail(order);
+  await prisma.$transaction(async (tx) => {
+    await deleteIssuedDocuments(tx, order);
+    await tx.order.update({
+      where: { id: orderId },
+      data: { status: ORDER_STATUSES.CANCELLED, cancelReason: reason || "Отменена менеджером" },
+    });
+    if (order.equipmentId) {
+      await tx.equipment.update({ where: { id: order.equipmentId }, data: { status: "AVAILABLE" } });
+    }
   });
-  if (order.equipmentId) {
-    await prisma.equipment.update({ where: { id: order.equipmentId }, data: { status: "AVAILABLE" } });
-  }
 
   const cancelReason = reason || "Отменена менеджером";
   const customerSms = await sendSms({
@@ -582,15 +654,11 @@ export async function cancelOrder(formData: FormData) {
     entity: "Order",
     entityId: orderId,
     orderId,
-    detail: cancelReason,
+    detail: docsDetail ? `${cancelReason} · ${docsDetail}` : cancelReason,
   });
 
-  revalidatePath("/orders");
-  revalidatePath(`/orders/${orderId}`);
-  revalidatePath("/");
-  revalidateDispatch();
-  revalidatePath("/driver");
-  return;
+  revalidateAfterCancel(orderId, Boolean(docsDetail));
+  return { ok: true as const };
 }
 
 /** Только главный менеджер: принудительно поставить любой статус заявки. */
@@ -603,10 +671,20 @@ export async function forceSetOrderStatus(formData: FormData) {
 
   const order = await prisma.order.findUnique({
     where: { id: orderId },
-    include: { driver: { include: { user: true } }, customer: true },
+    include: {
+      driver: { include: { user: true } },
+      customer: true,
+      invoice: { include: { payments: true } },
+      act: true,
+    },
   });
   if (!order) return;
   if (order.status === status) return;
+
+  const removingDocs = status === ORDER_STATUSES.CANCELLED;
+  const gate = removingDocs ? docRemovalGate(order, formData) : null;
+  if (gate) return gate;
+  const docsDetail = removingDocs ? removedDocsDetail(order) : "";
 
   const prevLabel = ORDER_STATUS_LABELS[order.status as OrderStatus] || order.status;
   const nextLabel = ORDER_STATUS_LABELS[status] || status;
@@ -637,14 +715,16 @@ export async function forceSetOrderStatus(formData: FormData) {
     // leave assignment as-is; admin may have forced step back
   }
 
-  await prisma.order.update({ where: { id: orderId }, data });
-
-  if (order.equipmentId) {
-    await prisma.equipment.update({
-      where: { id: order.equipmentId },
-      data: { status: LIVE_EQUIPMENT_STATUSES.has(status) ? "BUSY" : "AVAILABLE" },
-    });
-  }
+  await prisma.$transaction(async (tx) => {
+    if (removingDocs) await deleteIssuedDocuments(tx, order);
+    await tx.order.update({ where: { id: orderId }, data });
+    if (order.equipmentId) {
+      await tx.equipment.update({
+        where: { id: order.equipmentId },
+        data: { status: LIVE_EQUIPMENT_STATUSES.has(status) ? "BUSY" : "AVAILABLE" },
+      });
+    }
+  });
 
   if (status === ORDER_STATUSES.CANCELLED && order.driver?.user) {
     const cancelReason = note || `Принудительная отмена (${user.name})`;
@@ -678,6 +758,7 @@ export async function forceSetOrderStatus(formData: FormData) {
       { icon: "👤", value: user.name },
       { icon: "🔁", value: `${prevLabel} → ${nextLabel}` },
       ...(note ? [{ icon: "💬", value: note }] : []),
+      ...(docsDetail ? [{ icon: "📄", value: docsDetail }] : []),
     ],
   });
   await writeAudit({
@@ -687,14 +768,11 @@ export async function forceSetOrderStatus(formData: FormData) {
     entity: "Order",
     entityId: orderId,
     orderId,
-    detail: `${prevLabel} → ${nextLabel}${note ? ` · ${note}` : ""}`,
+    detail: `${prevLabel} → ${nextLabel}${note ? ` · ${note}` : ""}${docsDetail ? ` · ${docsDetail}` : ""}`,
   });
 
-  revalidatePath("/orders");
-  revalidatePath(`/orders/${orderId}`);
-  revalidatePath("/");
-  revalidateDispatch();
-  revalidatePath("/driver");
+  revalidateAfterCancel(orderId, Boolean(docsDetail));
+  return { ok: true as const };
 }
 
 function parseLinePayload(raw: FormDataEntryValue | null): DocLine[] {
