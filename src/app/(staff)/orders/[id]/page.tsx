@@ -2,10 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireStaff } from "@/lib/auth";
-import { cancelOrder, recordPayment } from "@/actions/orders";
+import { recordPayment } from "@/actions/orders";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { Field, Input, Select, Textarea } from "@/components/ui/fields";
+import { Field, Input } from "@/components/ui/fields";
 import { StatusBadge } from "@/components/ui/badge";
 import { SubmitButton } from "@/components/submit-button";
 import { formatDateTime, money, parsePhotos } from "@/lib/utils";
@@ -20,6 +20,7 @@ import { GenerateDocsButton } from "@/components/generate-docs-button";
 import { IssueDocsForm } from "@/components/issue-docs-form";
 import { EditDocsButton } from "@/components/edit-docs-button";
 import { ForceOrderStatusForm } from "@/components/force-order-status-form";
+import { CancelOrderForm } from "@/components/cancel-order-form";
 import { OrderBasicsEditor } from "@/components/order-basics-editor";
 import { OrderPaymentForm } from "@/components/order-payment-form";
 import { PriceAdjustForm } from "@/components/price-adjust-form";
@@ -184,7 +185,14 @@ export default async function OrderDetailPage({
                 <h2 className="font-semibold">Принудительный статус</h2>
               </CardHeader>
               <CardBody>
-                <ForceOrderStatusForm orderId={order.id} status={order.status} />
+                <ForceOrderStatusForm
+                  actNumber={order.act?.number}
+                  invoiceNumber={order.invoice?.number}
+                  orderId={order.id}
+                  paid={paid}
+                  paymentCount={order.invoice?.payments.length ?? 0}
+                  status={order.status}
+                />
               </CardBody>
             </Card>
           ) : null}
@@ -195,11 +203,13 @@ export default async function OrderDetailPage({
                 <h2 className="font-semibold">Отмена</h2>
               </CardHeader>
               <CardBody>
-                <form action={cancelOrder} className="space-y-3">
-                  <input name="orderId" type="hidden" value={order.id} />
-                  <Textarea name="cancelReason" placeholder="Причина отмены" />
-                  <SubmitButton variant="danger">Отменить заявку</SubmitButton>
-                </form>
+                <CancelOrderForm
+                  actNumber={order.act?.number}
+                  invoiceNumber={order.invoice?.number}
+                  orderId={order.id}
+                  paid={paid}
+                  paymentCount={order.invoice?.payments.length ?? 0}
+                />
               </CardBody>
             </Card>
           ) : null}

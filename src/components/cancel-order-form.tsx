@@ -1,24 +1,19 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { forceSetOrderStatus } from "@/actions/orders";
-import { Field, Select, Textarea } from "@/components/ui/fields";
+import { cancelOrder } from "@/actions/orders";
 import { Button } from "@/components/ui/button";
-import { ORDER_STATUS_LABELS, ORDER_STATUSES, type OrderStatus } from "@/lib/constants";
+import { Textarea } from "@/components/ui/fields";
 import { CancelDocumentsModals, type CancelWarningStep } from "@/components/cancel-documents-modals";
 
-const STATUS_OPTIONS = Object.entries(ORDER_STATUS_LABELS) as [OrderStatus, string][];
-
-export function ForceOrderStatusForm({
+export function CancelOrderForm({
   orderId,
-  status,
   invoiceNumber,
   actNumber,
   paid,
   paymentCount,
 }: {
   orderId: string;
-  status: string;
   invoiceNumber?: string | null;
   actNumber?: string | null;
   paid: number;
@@ -38,7 +33,7 @@ export function ForceOrderStatusForm({
     if (confirmDocs) data.set("confirmRemoveDocs", "1");
     if (confirmPayments) data.set("confirmRemovePayments", "1");
     start(async () => {
-      const result = await forceSetOrderStatus(data);
+      const result = await cancelOrder(data);
       if (result && "needsDocsConfirm" in result) {
         setStep("docs");
         return;
@@ -60,8 +55,7 @@ export function ForceOrderStatusForm({
         ref={formRef}
         onSubmit={(event) => {
           event.preventDefault();
-          const selected = String(new FormData(event.currentTarget).get("status") || "");
-          if (selected === ORDER_STATUSES.CANCELLED && hasDocs) {
+          if (hasDocs) {
             setStep("docs");
             return;
           }
@@ -69,23 +63,9 @@ export function ForceOrderStatusForm({
         }}
       >
         <input name="orderId" type="hidden" value={orderId} />
-        <Field label="Новый статус">
-          <Select defaultValue={status} name="status" required>
-            {STATUS_OPTIONS.map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <Field label="Причина / комментарий">
-          <Textarea name="note" placeholder="Необязательно — почему меняете вручную" />
-        </Field>
-        <p className="text-xs text-slate-500">
-          Доступно только главному менеджеру. Статус ставится сразу, без обычных шагов водителя.
-        </p>
-        <Button disabled={pending} type="submit" variant="secondary">
-          {pending ? "Сохраняем…" : "Установить статус"}
+        <Textarea name="cancelReason" placeholder="Причина отмены" />
+        <Button disabled={pending} type="submit" variant="danger">
+          {pending ? "Отменяем…" : "Отменить заявку"}
         </Button>
       </form>
       <CancelDocumentsModals
