@@ -11,7 +11,7 @@ import {
   requireUser,
   verifyPassword,
 } from "@/lib/auth";
-import { ROLES, type Role } from "@/lib/constants";
+import { ACCOUNTANT_HOME, ROLES, type Role } from "@/lib/constants";
 
 export type ProfileActionState = { error?: string; ok?: boolean } | null;
 
@@ -24,6 +24,7 @@ export async function loginAction(_prev: unknown, formData: FormData) {
   const result = await login(loginValue, password);
   if ("error" in result && result.error) return { error: result.error };
   if (result.role === ROLES.DRIVER) redirect("/driver");
+  if (result.role === ROLES.ACCOUNTANT) redirect(ACCOUNTANT_HOME);
   redirect("/");
 }
 

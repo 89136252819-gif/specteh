@@ -48,8 +48,15 @@ function isActive(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function StaffMobileNav({ showAuditLog = false }: { showAuditLog?: boolean }) {
+export function StaffMobileNav({ showAuditLog = false, accountant = false }: { showAuditLog?: boolean; accountant?: boolean }) {
   const pathname = usePathname();
+  if (accountant) {
+    return (
+      <nav className="staff-mobile-nav fixed bottom-0 left-0 right-0 z-30 flex border-t border-slate-200/80 bg-white/95 px-1 pt-1 shadow-[0_-8px_30px_rgba(31,41,51,0.1)] backdrop-blur-md lg:hidden">
+        <NavItem active href="/vat-invoices" icon={FileText} label="Счёт-фактуры" />
+      </nav>
+    );
+  }
   const more = showAuditLog
     ? [...MORE, { href: "/settings/audit", label: "Журнал действий", icon: ScrollText }]
     : MORE;

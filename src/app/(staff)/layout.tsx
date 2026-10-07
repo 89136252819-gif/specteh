@@ -3,21 +3,25 @@ import { prisma } from "@/lib/db";
 import { AppShell } from "@/components/app-shell";
 import type { OverdueInvoice } from "@/components/overdue-invoices-button";
 import { toStaffNotice } from "@/lib/notification-ui";
+import { ROLES } from "@/lib/constants";
 
 export default async function StaffLayout({ children }: { children: React.ReactNode }) {
   const user = await requireStaff();
   const now = new Date();
+  const accountant = user.role === ROLES.ACCOUNTANT;
   const [notices, unpaid] = await Promise.all([
     prisma.notification.findMany({
       where: { userId: user.id, archived: false },
       orderBy: [{ read: "asc" }, { createdAt: "desc" }],
       take: 40,
     }),
-    prisma.invoice.findMany({
-      where: { status: { not: "PAID" } },
-      include: { order: { include: { customer: true } }, payments: true },
-      orderBy: { issuedAt: "asc" },
-    }),
+    accountant
+      ? Promise.resolve([])
+      : prisma.invoice.findMany({
+          where: { status: { not: "PAID" } },
+          include: { order: { include: { customer: true } }, payments: true },
+          orderBy: { issuedAt: "asc" },
+        }),
   ]);
 
   const overdue: OverdueInvoice[] = unpaid

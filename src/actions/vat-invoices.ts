@@ -103,5 +103,6 @@ export async function returnVatInvoice(formData: FormData) {
 
   revalidatePath(`/orders/${orderId}`);
   revalidatePath("/documents");
+  revalidatePath("/vat-invoices");
   return { ok: true as const };
 }

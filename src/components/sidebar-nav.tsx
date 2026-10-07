@@ -81,8 +81,15 @@ function NavItem({
   );
 }
 
-export function SidebarNav({ showAuditLog = false }: { showAuditLog?: boolean }) {
+export function SidebarNav({ showAuditLog = false, accountant = false }: { showAuditLog?: boolean; accountant?: boolean }) {
   const pathname = usePathname();
+  if (accountant) {
+    return (
+      <nav className="flex min-h-0 flex-1 flex-col px-3 pb-4">
+        <NavItem active href="/vat-invoices" icon={FileText} label="Счёт-фактуры" />
+      </nav>
+    );
+  }
   const settings = showAuditLog
     ? [...SETTINGS, { href: "/settings/audit", label: "Журнал действий", icon: ScrollText }]
     : SETTINGS;

@@ -7,7 +7,7 @@ import { logoutAction, updateProfileAction } from "@/actions/auth";
 import { CenterModal } from "@/components/center-modal";
 import { SubmitButton } from "@/components/submit-button";
 import { Field, Input } from "@/components/ui/fields";
-import { ROLE_LABELS, type Role } from "@/lib/constants";
+import { ROLES, ROLE_LABELS, type Role } from "@/lib/constants";
 import { phonePretty } from "@/lib/utils";
 
 function initials(name: string) {
@@ -108,20 +108,22 @@ export function ProfileMenu({
             </SubmitButton>
           </form>
 
-          <div className="flex flex-wrap gap-2 text-xs font-semibold">
-            <Link className="inline-flex min-h-9 items-center rounded-full bg-slate-100 px-3 py-1.5 text-slate-600 hover:bg-menu-soft hover:text-menu-hover" href="/settings/users" onClick={() => setOpen(false)}>
-              Сотрудники
-            </Link>
-            <Link className="inline-flex min-h-9 items-center rounded-full bg-slate-100 px-3 py-1.5 text-slate-600 hover:bg-menu-soft hover:text-menu-hover" href="/settings/organizations" onClick={() => setOpen(false)}>
-              Организации
-            </Link>
-            <Link className="inline-flex min-h-9 items-center rounded-full bg-slate-100 px-3 py-1.5 text-slate-600 hover:bg-menu-soft hover:text-menu-hover" href="/settings/prices" onClick={() => setOpen(false)}>
-              Прайс
-            </Link>
-            <Link className="inline-flex min-h-9 items-center rounded-full bg-slate-100 px-3 py-1.5 text-slate-600 hover:bg-menu-soft hover:text-menu-hover" href="/settings/sms" onClick={() => setOpen(false)}>
-              Уведомления
-            </Link>
-          </div>
+          {user.role === ROLES.ACCOUNTANT ? null : (
+            <div className="flex flex-wrap gap-2 text-xs font-semibold">
+              <Link className="inline-flex min-h-9 items-center rounded-full bg-slate-100 px-3 py-1.5 text-slate-600 hover:bg-menu-soft hover:text-menu-hover" href="/settings/users" onClick={() => setOpen(false)}>
+                Сотрудники
+              </Link>
+              <Link className="inline-flex min-h-9 items-center rounded-full bg-slate-100 px-3 py-1.5 text-slate-600 hover:bg-menu-soft hover:text-menu-hover" href="/settings/organizations" onClick={() => setOpen(false)}>
+                Организации
+              </Link>
+              <Link className="inline-flex min-h-9 items-center rounded-full bg-slate-100 px-3 py-1.5 text-slate-600 hover:bg-menu-soft hover:text-menu-hover" href="/settings/prices" onClick={() => setOpen(false)}>
+                Прайс
+              </Link>
+              <Link className="inline-flex min-h-9 items-center rounded-full bg-slate-100 px-3 py-1.5 text-slate-600 hover:bg-menu-soft hover:text-menu-hover" href="/settings/sms" onClick={() => setOpen(false)}>
+                Уведомления
+              </Link>
+            </div>
+          )}
         </div>
 
         <div className="flex justify-end border-t border-slate-100 px-4 py-4 sm:px-6">
