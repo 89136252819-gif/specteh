@@ -32,8 +32,8 @@ async function main() {
   });
   await prisma.user.create({
     data: {
-      login: "accountant",
-      passwordHash: await hash("accountant123"),
+      login: "buh",
+      passwordHash: await hash("buh123"),
       name: "Новикова Ольга",
       phone: "+79003334455",
       role: "ACCOUNTANT",
