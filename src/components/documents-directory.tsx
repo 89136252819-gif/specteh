@@ -13,6 +13,7 @@ import { PdfLink } from "@/components/pdf-link";
 import { invoiceStatusLabel } from "@/lib/constants";
 import { DOCS_PAGE_SIZE } from "@/lib/list-paging";
 import { formatDate, money } from "@/lib/utils";
+import { VAT_INVOICE_KIND_LABELS, type VatInvoiceKind } from "@/lib/vat-invoice";
 
 export type InvoiceRow = {
   id: string;
@@ -35,23 +36,43 @@ export type ActRow = {
   publicToken: string;
 };
 
+export type CashlessRow = {
+  orderId: string;
+  orderNumber: string;
+  customerName: string;
+  paymentLabel: string;
+  invoiceNumber: string;
+  invoiceToken: string;
+  actNumber: string | null;
+  actToken: string | null;
+  vatKind: Exclude<VatInvoiceKind, "none">;
+  vatNumber: string | null;
+  vatId: string | null;
+};
+
 export function DocumentsDirectory({
   invoices,
   acts,
+  cashless,
   stats,
   page,
   invoiceTotal,
   actTotal,
+  cashlessTotal,
+  waitingVat,
   tab,
   unpaidOnly,
 }: {
   invoices: InvoiceRow[];
   acts: ActRow[];
+  cashless: CashlessRow[];
   stats: { total: number; unpaid: number; unpaidSum: number };
   page: number;
   invoiceTotal: number;
   actTotal: number;
-  tab: "invoices" | "acts";
+  cashlessTotal: number;
+  waitingVat: number;
+  tab: "invoices" | "acts" | "cashless";
   unpaidOnly: boolean;
 }) {
   const router = useRouter();
@@ -60,7 +81,7 @@ export function DocumentsDirectory({
   const [pending, start] = useTransition();
   const qParam = searchParams.get("q") || "";
   const [query, setQuery] = useState(qParam);
-  const total = tab === "invoices" ? invoiceTotal : actTotal;
+  const total = tab === "invoices" ? invoiceTotal : tab === "acts" ? actTotal : cashlessTotal;
   const totalPages = Math.max(1, Math.ceil(total / DOCS_PAGE_SIZE));
 
   useEffect(() => {
@@ -90,10 +111,11 @@ export function DocumentsDirectory({
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
         <SummaryStat hint="выставлено" label="Счетов" value={stats.total} />
         <SummaryStat hint="ещё не закрыты" label="Не оплачено" tone="accent" value={stats.unpaid} />
         <SummaryStat hint="по неоплаченным" label="К получению" value={money(stats.unpaidSum)} />
+        <SummaryStat hint="безнал с НДС" label="Ждут счёт-фактуру" tone="accent" value={waitingVat} />
       </div>
 
       <div className="panel">
@@ -114,6 +136,9 @@ export function DocumentsDirectory({
             <FilterChip active={tab === "acts"} onClick={() => patch({ tab: "acts", page: null, unpaid: null })}>
               Акты
             </FilterChip>
+            <FilterChip active={tab === "cashless"} onClick={() => patch({ tab: "cashless", page: null, unpaid: null })}>
+              Безнал
+            </FilterChip>
             {tab === "invoices" ? (
               <FilterChip
                 active={unpaidOnly}
@@ -127,7 +152,79 @@ export function DocumentsDirectory({
 
         {pending ? <p className="px-4 py-2 text-xs text-slate-400">Обновляем список…</p> : null}
 
-        {tab === "invoices" ? (
+        {tab === "cashless" ? (
+          cashless.length === 0 ? (
+            <EmptyState
+              className="mx-4 my-8"
+              description={qParam ? "Ничего не нашли по этому запросу" : "Безналичных счетов пока нет"}
+              title={qParam ? "Список пуст" : "Безнала пока нет"}
+            />
+          ) : (
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Заявка</Th>
+                  <Th>Заказчик</Th>
+                  <Th>Оплата</Th>
+                  <Th>Счёт</Th>
+                  <Th>Акт</Th>
+                  <Th>Счёт-фактура</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {cashless.map((row) => (
+                  <tr key={row.orderId}>
+                    <Td>
+                      <Link className="font-semibold text-navy hover:underline" href={`/orders/${row.orderId}`}>
+                        {row.orderNumber}
+                      </Link>
+                    </Td>
+                    <Td>{row.customerName}</Td>
+                    <Td className="text-slate-600">{row.paymentLabel}</Td>
+                    <Td>
+                      {row.invoiceToken ? (
+                        <PdfLink className="link-quiet" href={`/api/pdf/invoice/${row.invoiceToken}`}>
+                          {row.invoiceNumber}
+                        </PdfLink>
+                      ) : (
+                        row.invoiceNumber
+                      )}
+                    </Td>
+                    <Td>
+                      {row.actToken && row.actNumber ? (
+                        <PdfLink className="link-quiet" href={`/api/pdf/act/${row.actToken}`}>
+                          {row.actNumber}
+                        </PdfLink>
+                      ) : (
+                        "—"
+                      )}
+                    </Td>
+                    <Td>
+                      <Badge
+                        className={
+                          row.vatKind === "received"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : row.vatKind === "stale"
+                              ? "bg-amber-100 text-amber-900"
+                              : row.vatKind === "waiting"
+                                ? "bg-rose-100 text-rose-800"
+                                : "bg-slate-100 text-slate-600"
+                        }
+                      >
+                        {VAT_INVOICE_KIND_LABELS[row.vatKind]}
+                      </Badge>
+                      {row.vatId && row.vatNumber ? (
+                        <a className="ml-2 text-brand-hover hover:underline" href={`/api/vat-invoice/${row.vatId}`}>
+                          {row.vatNumber}
+                        </a>
+                      ) : null}
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          )
+        ) : tab === "invoices" ? (
           invoices.length === 0 ? (
             <EmptyState
               actionHref={stats.total === 0 ? "/orders" : undefined}

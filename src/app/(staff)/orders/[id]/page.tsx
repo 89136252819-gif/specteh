@@ -8,7 +8,9 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Field, Input, Select, Textarea } from "@/components/ui/fields";
 import { StatusBadge } from "@/components/ui/badge";
 import { SubmitButton } from "@/components/submit-button";
-import { formatDateTime, money, parsePhotos } from "@/lib/utils";
+import { formatDate, formatDateTime, money, parsePhotos } from "@/lib/utils";
+import { VAT_INVOICE_KIND_LABELS, vatInvoiceKind } from "@/lib/vat-invoice";
+import { VatInvoiceReturnForm } from "@/components/vat-invoice-return-form";
 import { invoiceStatusLabel, PAYMENT_METHOD_LABELS, PAYMENT_METHODS, ROLES, AUDIT_ACTION_LABELS, type PaymentMethod } from "@/lib/constants";
 import { defaultPaymentPurpose, resolvePaymentPurpose } from "@/lib/invoice-purpose";
 import { PdfLink } from "@/components/pdf-link";
@@ -49,6 +51,10 @@ export default async function OrderDetailPage({
       report: true,
       invoice: { include: { payments: true } },
       act: true,
+      vatInvoices: {
+        include: { receivedBy: { select: { name: true } } },
+        orderBy: { receivedAt: "desc" },
+      },
     },
   });
   if (!order) notFound();
@@ -79,6 +85,16 @@ export default async function OrderDetailPage({
   const canEditPayment = !order.invoice && !["PAID", "CANCELLED"].includes(order.status);
   const canEditBasics = !["PAID", "CANCELLED"].includes(order.status);
   const canForceStatus = user.role === ROLES.ADMIN;
+  const currentVat = order.vatInvoices.find((item) => !item.supersededAt) ?? null;
+  const vatKind = vatInvoiceKind({
+    paymentMethod: order.paymentMethod,
+    invoice: order.invoice,
+    current: currentVat,
+  });
+  const canReturnVat =
+    (user.role === ROLES.ADMIN || user.role === ROLES.ACCOUNTANT) &&
+    order.status !== "CANCELLED" &&
+    (vatKind === "waiting" || vatKind === "stale" || vatKind === "received");
 
   let preview = null;
   let rates: Awaited<ReturnType<typeof getRatesForOrder>> = [];
@@ -341,6 +357,50 @@ export default async function OrderDetailPage({
               )}
               vatRate={order.invoice.vatRate ?? displayVat}
             />
+            {vatKind !== "none" || order.vatInvoices.length ? (
+              <div className="space-y-3 border-t border-slate-100 pt-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="font-semibold text-navy">Счёт-фактура</h3>
+                  {vatKind !== "none" ? (
+                    <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
+                      {VAT_INVOICE_KIND_LABELS[vatKind]}
+                    </span>
+                  ) : null}
+                </div>
+                {order.status === "CANCELLED" ? (
+                  <p className="text-sm text-slate-500">Заявка отменена. Файл счёт-фактуры, если его уже вернули, остаётся здесь.</p>
+                ) : null}
+                {vatKind === "not_required" ? (
+                  <p className="text-sm text-slate-500">Для безнала без НДС счёт-фактура не требуется.</p>
+                ) : null}
+                {vatKind === "waiting" ? (
+                  <p className="text-sm text-slate-600">
+                    Бухгалтер делает счёт-фактуру по счёту {order.invoice.number} и возвращает PDF сюда.
+                  </p>
+                ) : null}
+                {vatKind === "stale" && currentVat ? (
+                  <p className="text-sm text-amber-900">
+                    Счёт изменился после счёт-фактуры {currentVat.number}. Нужен новый файл, прежний остаётся ниже.
+                  </p>
+                ) : null}
+                {order.vatInvoices.map((card) => (
+                  <div className="rounded-2xl bg-slate-50 px-3 py-2 text-sm" key={card.id}>
+                    <a className="font-semibold text-brand-hover hover:underline" href={`/api/vat-invoice/${card.id}`}>
+                      {card.number}
+                    </a>
+                    <span className="text-slate-600"> · {formatDate(card.issuedAt)}</span>
+                    {card.supersededAt ? <span className="text-slate-400"> · заменена</span> : null}
+                    <span className="mt-0.5 block text-xs text-slate-400">
+                      {card.receivedBy?.name || "Сотрудник"} · {formatDateTime(card.receivedAt)} · к счёту {card.invoiceNumber}
+                      {card.comment ? ` · ${card.comment}` : ""}
+                    </span>
+                  </div>
+                ))}
+                {canReturnVat ? (
+                  <VatInvoiceReturnForm orderId={order.id} replace={vatKind === "received" || vatKind === "stale"} />
+                ) : null}
+              </div>
+            ) : null}
           </CardBody>
         </Card>
       ) : null}

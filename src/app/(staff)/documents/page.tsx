@@ -2,7 +2,9 @@ import { Suspense } from "react";
 import { prisma } from "@/lib/db";
 import { PageHeader } from "@/components/page-header";
 import { DocumentsDirectory } from "@/components/documents-directory";
+import { PAYMENT_METHOD_LABELS, PAYMENT_METHODS, type PaymentMethod } from "@/lib/constants";
 import { DOCS_PAGE_SIZE } from "@/lib/list-paging";
+import { vatInvoiceKind, vatInvoiceNeedsReturn } from "@/lib/vat-invoice";
 
 export default async function DocumentsPage({
   searchParams,
@@ -13,7 +15,7 @@ export default async function DocumentsPage({
   const page = Math.max(1, parseInt(params.page || "1", 10) || 1);
   const q = params.q?.trim() || "";
   const unpaidOnly = params.unpaid === "1";
-  const tab = params.tab === "acts" ? "acts" : "invoices";
+  const tab = params.tab === "acts" ? "acts" : params.tab === "cashless" ? "cashless" : "invoices";
 
   const invoiceWhere = {
     ...(unpaidOnly ? { status: { not: "PAID" } } : {}),
@@ -33,7 +35,24 @@ export default async function DocumentsPage({
       }
     : {};
 
-  const [invoices, acts, invoiceTotal, actTotal, invoiceStatsTotal, unpaidCount, unpaidSumAgg] =
+  const cashlessWhere = {
+    status: { not: "CANCELLED" },
+    paymentMethod: { in: [PAYMENT_METHODS.CASHLESS_VAT, PAYMENT_METHODS.CASHLESS_NO_VAT] },
+    invoice: { isNot: null },
+    ...(q
+      ? {
+          OR: [
+            { number: { contains: q } },
+            { customer: { name: { contains: q } } },
+            { invoice: { number: { contains: q } } },
+            { act: { is: { number: { contains: q } } } },
+            { vatInvoices: { some: { number: { contains: q }, supersededAt: null } } },
+          ],
+        }
+      : {}),
+  };
+
+  const [invoices, acts, invoiceTotal, actTotal, invoiceStatsTotal, unpaidCount, unpaidSumAgg, cashlessOrders, cashlessTotal, vatWatch] =
     await Promise.all([
       prisma.invoice.findMany({
         where: invoiceWhere,
@@ -57,6 +76,40 @@ export default async function DocumentsPage({
         where: { status: { not: "PAID" } },
         select: { amount: true, payments: { select: { amount: true } } },
       }),
+      prisma.order.findMany({
+        where: cashlessWhere,
+        orderBy: { scheduledAt: "desc" },
+        skip: (page - 1) * DOCS_PAGE_SIZE,
+        take: DOCS_PAGE_SIZE,
+        include: {
+          customer: { select: { name: true } },
+          invoice: { select: { number: true, amount: true, vatAmount: true, publicToken: true } },
+          act: { select: { number: true, publicToken: true } },
+          vatInvoices: {
+            where: { supersededAt: null },
+            orderBy: { receivedAt: "desc" },
+            take: 1,
+            select: { id: true, number: true, invoiceNumber: true, invoiceAmount: true, invoiceVatAmount: true },
+          },
+        },
+      }),
+      prisma.order.count({ where: cashlessWhere }),
+      prisma.order.findMany({
+        where: {
+          status: { not: "CANCELLED" },
+          paymentMethod: PAYMENT_METHODS.CASHLESS_VAT,
+          invoice: { isNot: null },
+        },
+        select: {
+          invoice: { select: { number: true, amount: true, vatAmount: true } },
+          vatInvoices: {
+            where: { supersededAt: null },
+            orderBy: { receivedAt: "desc" },
+            take: 1,
+            select: { invoiceNumber: true, invoiceAmount: true, invoiceVatAmount: true },
+          },
+        },
+      }),
     ]);
 
   const unpaidSum = unpaidSumAgg.reduce((sum, inv) => {
@@ -68,7 +121,7 @@ export default async function DocumentsPage({
     <div>
       <PageHeader
         title="Документы"
-        subtitle="Счета и акты. Неоплаченные можно отфильтровать, PDF скачивается из строки."
+        subtitle="Счета, акты и безнал. Счёт-фактуру бухгалтер возвращает файлом к заявке."
         actions={
           <a
             className="inline-flex h-10 items-center rounded-2xl bg-gradient-to-b from-[#5a6b7c] to-brand px-4 text-sm font-semibold text-white shadow-md shadow-navy/20"
@@ -107,8 +160,39 @@ export default async function DocumentsPage({
             unpaid: unpaidCount,
             unpaidSum,
           }}
+          cashless={cashlessOrders.map((order) => {
+            const current = order.vatInvoices[0] ?? null;
+            const kind = vatInvoiceKind({
+              paymentMethod: order.paymentMethod,
+              invoice: order.invoice,
+              current,
+            });
+            return {
+              orderId: order.id,
+              orderNumber: order.number,
+              customerName: order.customer.name,
+              paymentLabel: PAYMENT_METHOD_LABELS[order.paymentMethod as PaymentMethod] || order.paymentMethod,
+              invoiceNumber: order.invoice?.number || "—",
+              invoiceToken: order.invoice?.publicToken || "",
+              actNumber: order.act?.number || null,
+              actToken: order.act?.publicToken || null,
+              vatKind: kind === "none" ? "waiting" : kind,
+              vatNumber: current?.number || null,
+              vatId: current?.id || null,
+            };
+          })}
+          cashlessTotal={cashlessTotal}
           tab={tab}
           unpaidOnly={unpaidOnly}
+          waitingVat={vatWatch.filter((order) =>
+            vatInvoiceNeedsReturn(
+              vatInvoiceKind({
+                paymentMethod: PAYMENT_METHODS.CASHLESS_VAT,
+                invoice: order.invoice,
+                current: order.vatInvoices[0] ?? null,
+              }),
+            ),
+          ).length}
         />
       </Suspense>
     </div>
