@@ -24,6 +24,7 @@ model User {
   pushSubscriptions PushSubscription[]
   paymentsRecorded Payment[]      @relation("PaymentRecorder")
   createdOrders    Order[]        @relation("OrderCreator")
+  vatInvoicesReceived VatInvoice[] @relation("VatInvoiceReceiver")
 }
 
 model Organization {
@@ -167,6 +168,7 @@ model Order {
   report        WorkReport?
   invoice       Invoice?
   act           Act?
+  vatInvoices   VatInvoice[]
 }
 
 model WorkReport {
@@ -221,6 +223,27 @@ model Act {
 
   order        Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
   organization Organization @relation(fields: [organizationId], references: [id])
+}
+
+model VatInvoice {
+  id               String    @id @default(cuid())
+  orderId          String
+  number           String
+  issuedAt         DateTime
+  fileName         String
+  storedName       String
+  comment          String?
+  invoiceNumber    String
+  invoiceAmount    Float
+  invoiceVatAmount Float
+  receivedById     String?
+  receivedAt       DateTime  @default(now())
+  supersededAt     DateTime?
+
+  order      Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  receivedBy User? @relation("VatInvoiceReceiver", fields: [receivedById], references: [id], onDelete: SetNull)
+
+  @@index([orderId, receivedAt])
 }
 
 model Payment {

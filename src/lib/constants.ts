@@ -16,6 +16,9 @@ export const ROLE_LABELS: Record<Role, string> = {
 
 export const STAFF_ROLES: Role[] = ["ADMIN", "MANAGER", "ACCOUNTANT"];
 
+/** Единственный раздел кабинета бухгалтера. */
+export const ACCOUNTANT_HOME = "/vat-invoices";
+
 /** Единственный пользователь с доступом к полному журналу действий. */
 export const AUDIT_VIEWER_NAME = "Клочков Максим Игоревич";
 
@@ -26,6 +29,7 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   VERIFY_REPORT: "Проверка отчёта",
   GENERATE_DOCS: "Документы",
   EDIT_DOCS: "Правка документов",
+  VAT_INVOICE: "Счёт-фактура",
   ADVANCE: "Статус с канбана",
   PAYMENT: "Оплата",
   REPEAT: "Повтор",

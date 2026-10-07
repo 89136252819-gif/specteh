@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
+import { ACCOUNTANT_HOME, ROLES } from "@/lib/constants";
 
 const COOKIE = "spetsteh_session";
 const PUBLIC = ["/login", "/d", "/fonts", "/order"];
@@ -36,6 +37,10 @@ export async function middleware(request: NextRequest) {
   try {
     const { payload } = await jwtVerify(token, secret());
     const role = payload.role as string;
+
+    if (role === ROLES.ACCOUNTANT && pathname !== ACCOUNTANT_HOME) {
+      return NextResponse.redirect(new URL(ACCOUNTANT_HOME, request.url));
+    }
 
     const driverApp = pathname === "/driver" || pathname.startsWith("/driver/");
     if (driverApp && role !== "DRIVER") {

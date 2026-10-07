@@ -39,7 +39,7 @@ const FILTERS = [
   { id: "REPORT_SUBMITTED", label: "Отчёты" },
 ] as const;
 
-export function NotificationsBell({ items }: { items: StaffNotice[] }) {
+export function NotificationsBell({ items, homeHref }: { items: StaffNotice[]; homeHref?: string }) {
   const [open, setOpen] = useState(false);
   const [list, setList] = useState(items);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["id"]>("all");
@@ -129,7 +129,7 @@ export function NotificationsBell({ items }: { items: StaffNotice[] }) {
       void markOneRead(item.id);
     }
     setOpen(false);
-    router.push(noticeHref(item));
+    router.push(homeHref || noticeHref(item));
   }
 
   return (
@@ -209,7 +209,7 @@ export function NotificationsBell({ items }: { items: StaffNotice[] }) {
                     "flex gap-3 border-b border-slate-50 px-4 py-3 last:border-0 hover:bg-menu-soft/50",
                     item.type === "DRIVER_DECLINED" ? "bg-rose-50/80" : item.read ? "opacity-70" : "bg-menu-soft/25",
                   )}
-                  href={noticeHref(item)}
+                  href={homeHref || noticeHref(item)}
                   onClick={(event) => openItem(item, event)}
                 >
                   <span

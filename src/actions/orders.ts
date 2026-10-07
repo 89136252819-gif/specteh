@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireRoles, requireStaff } from "@/lib/auth";
 import { notifyStaff } from "@/lib/notifications";
+import { notifyVatInvoiceNeeded } from "@/lib/vat-invoice-notice";
+import { vatInvoiceIsStale } from "@/lib/vat-invoice";
 import { sendSms } from "@/lib/sms";
 import { calculateFromReport, getRatesForOrder, parseBillingJson, resolveVatRate, totalsFromLines, applyManualTotals, type DocLine } from "@/lib/pricing";
 import { roundMoney } from "@/lib/pricing-shared";
@@ -13,6 +15,7 @@ import {
   CUSTOMER_TYPES,
   ORDER_STATUSES,
   ORDER_STATUS_LABELS,
+  PAYMENT_METHODS,
   PRICE_KINDS,
   ROLES,
   SMS_TEMPLATE_KEYS,
@@ -1069,6 +1072,18 @@ async function createBoundDocuments(input: {
     detail: `${invoice.number} / ${act.number}`,
   });
 
+  if (input.paymentMethod === PAYMENT_METHODS.CASHLESS_VAT) {
+    await notifyVatInvoiceNeeded({
+      orderId: input.orderId,
+      orderNumber: order.number,
+      customerName: order.customer.name,
+      invoiceNumber: invoice.number,
+      actNumber: act.number,
+      amount: invoice.amount,
+      vatAmount: invoice.vatAmount,
+    });
+  }
+
   revalidatePath(`/orders/${input.orderId}`);
   revalidatePath("/documents");
   revalidatePath("/finance");
@@ -1090,6 +1105,7 @@ export async function updateOrderDocuments(formData: FormData) {
       act: true,
       report: true,
       customer: { select: { id: true, name: true } },
+      vatInvoices: { where: { supersededAt: null }, orderBy: { receivedAt: "desc" }, take: 1 },
     },
   });
   if (!order?.invoice || !order.act) {
@@ -1194,6 +1210,34 @@ export async function updateOrderDocuments(formData: FormData) {
         ? `${order.invoice.number} / ${order.act.number} → ${calc.total} ₽ · заказчик ${customerName}`
         : `${order.invoice.number} / ${order.act.number} → ${calc.total} ₽`,
   });
+
+  const currentVat = order.vatInvoices[0];
+  const matchedBefore = Boolean(currentVat && !vatInvoiceIsStale(currentVat, order.invoice));
+  const stillMatches = Boolean(
+    currentVat &&
+      paymentMethod === PAYMENT_METHODS.CASHLESS_VAT &&
+      !vatInvoiceIsStale(currentVat, {
+        number: order.invoice.number,
+        amount: calc.total,
+        vatAmount: calc.vatAmount,
+      }),
+  );
+  const becameNeeded =
+    paymentMethod === PAYMENT_METHODS.CASHLESS_VAT &&
+    !stillMatches &&
+    (order.paymentMethod !== PAYMENT_METHODS.CASHLESS_VAT || matchedBefore);
+  if (becameNeeded) {
+    await notifyVatInvoiceNeeded({
+      orderId,
+      orderNumber: order.number,
+      customerName,
+      invoiceNumber: order.invoice.number,
+      actNumber: order.act.number,
+      amount: calc.total,
+      vatAmount: calc.vatAmount,
+      renewed: Boolean(currentVat),
+    });
+  }
 
   revalidatePath(`/orders/${orderId}`);
   revalidatePath("/documents");

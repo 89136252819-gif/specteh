@@ -77,7 +77,27 @@ async function main() {
   await prisma.$executeRawUnsafe(
     'CREATE INDEX IF NOT EXISTS PushSubscription_userId_idx ON "PushSubscription"("userId")',
   );
-  console.log("schema: audit/templates/dueAt/archived/push ready");
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "VatInvoice" (
+      "id" TEXT PRIMARY KEY NOT NULL,
+      "orderId" TEXT NOT NULL,
+      "number" TEXT NOT NULL,
+      "issuedAt" DATETIME NOT NULL,
+      "fileName" TEXT NOT NULL,
+      "storedName" TEXT NOT NULL,
+      "comment" TEXT,
+      "invoiceNumber" TEXT NOT NULL,
+      "invoiceAmount" REAL NOT NULL,
+      "invoiceVatAmount" REAL NOT NULL,
+      "receivedById" TEXT,
+      "receivedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "supersededAt" DATETIME
+    )
+  `);
+  await prisma.$executeRawUnsafe(
+    'CREATE INDEX IF NOT EXISTS VatInvoice_orderId_receivedAt_idx ON "VatInvoice"("orderId", "receivedAt")',
+  );
+  console.log("schema: audit/templates/dueAt/archived/push/vat-invoice ready");
   const backfill = await prisma.$executeRawUnsafe(
     `UPDATE "Invoice" SET "dueAt" = datetime("issuedAt", '+7 days') WHERE "dueAt" IS NULL`,
   );
